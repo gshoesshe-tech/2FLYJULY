@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Inventory | 2FLY</title>
+<link rel="stylesheet" href="./styles.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="./config.js"></script><script defer src="./common.js"></script><script defer src="./inventory.js"></script></head>
+<body data-page="inventory" data-required-role="team"><div id="toast" class="toast"></div><div class="app-shell"><aside class="sidebar"><div class="side-brand"><div class="logo small">2F</div><div><strong>2FLY System</strong><span>July 2026</span></div></div><nav><a href="./dashboard.html" data-nav="dashboard" class="nav-btn ">Dashboard</a><a href="./orderpage.html" data-nav="orders" class="nav-btn ">Orders</a><a href="./inventory.html" data-nav="inventory" class="nav-btn ">Inventory</a><a href="./production.html" data-nav="production" class="nav-btn management-only">Production</a><a href="./payments.html" data-nav="payments" class="nav-btn ">Payments</a><a href="./expenses.html" data-nav="expenses" class="nav-btn management-only">Expenses</a><a href="./finance.html" data-nav="finance" class="nav-btn management-only">Finance</a><a href="./settings.html" data-nav="settings" class="nav-btn owner-only">Settings</a></nav><div class="side-user"><span id="userEmail">—</span><strong id="userRole">—</strong><button id="logoutBtn" class="btn ghost">Log out</button></div></aside>
+<section class="workspace"><header class="topbar"><div><h2>Inventory</h2><p>Legacy stock, costed stock, exact garters, and incoming earrings.</p></div><div class="top-actions"><button id="refreshBtn" class="btn">Refresh</button></div></header><section class="page active" id="page-inventory">
+<div class="kpi-grid">
+<article class="kpi"><span>Total available pieces</span><strong id="invTotalAvailable">0</strong></article>
+<article class="kpi"><span>Legacy pieces</span><strong id="invLegacy">0</strong></article>
+<article class="kpi"><span>Costed pieces</span><strong id="invCosted">0</strong></article>
+<article class="kpi management-only"><span>Costed inventory value</span><strong id="invValue">₱0</strong></article>
+</div>
+<article class="card"><div class="card-head"><h3>Category inventory</h3></div><div class="table-wrap" id="inventoryTable"></div></article>
+<div class="two-col">
+<article class="card management-only">
+<div class="card-head"><h3>Opening stock / adjustment</h3></div>
+<form class="card-body form-grid" id="inventoryAdjustForm">
+<label>Category<select id="adjustCategory"></select></label>
+<label>SKU (required for Boxers/Earrings)<input id="adjustSku" list="skuList"/></label>
+<label>Stock bucket<select id="adjustBucket"><option value="legacy">Legacy — unknown old cost</option><option value="costed">Costed — July onward</option></select></label>
+<label>Quantity change<input id="adjustQty" placeholder="Use negative to remove" required="" step="1" type="number"/></label>
+<label>Unit cost<input id="adjustUnitCost" min="0" step="0.0001" type="number" value="0"/></label>
+<label>Reason<select id="adjustType"><option value="opening_legacy">Opening legacy</option><option value="opening_costed">Opening costed</option><option value="manual_add">Manual add</option><option value="manual_remove">Manual remove</option><option value="damage">Damaged</option><option value="loss">Missing/lost</option><option value="freebie">Freebie</option><option value="sample">Sample</option><option value="personal_use">Personal use</option><option value="stock_count_adjustment">Physical count correction</option></select></label>
+<label class="span-2">Notes<textarea id="adjustReason"></textarea></label>
+<button class="btn primary span-2">Save inventory movement</button>
+</form>
+</article>
+<article class="card">
+<div class="card-head"><h3>Boxer and earring design availability</h3><input id="designSearch" placeholder="Search SKU"/></div>
+<div class="table-wrap compact" id="designTable"></div>
+</article>
+</div>
+<div class="two-col">
+<article class="card management-only">
+<div class="card-head"><h3>Exact garter receipt</h3></div>
+<form class="card-body form-grid" id="garterForm">
+<label>Date<input id="garterDate" type="date"/></label><label>Supplier<input id="garterSupplier"/></label>
+<label>Bundles<input id="garterBundles" min="0.001" step="0.001" type="number" value="1"/></label>
+<label>Total cost<input id="garterCost" min="0.01" step="0.01" type="number"/></label>
+<label>Exact usable pieces<input id="garterPieces" min="1" step="1" type="number"/></label>
+<label>Paid from<select id="garterAccount"></select></label>
+<label class="span-2">Notes<textarea id="garterNotes"></textarea></label>
+<button class="btn primary span-2">Record exact garter count</button>
+</form>
+<div class="mini-summary" id="garterBalance"></div>
+</article>
+<article class="card management-only">
+<div class="card-head"><h3>Incoming earring drop</h3></div>
+<form class="card-body form-grid" id="earringDropForm">
+<label>Drop name<input id="dropName" required=""/></label><label>Expected date<input id="dropDate" type="date"/></label>
+<label>Default quantity per design<input id="dropDefaultQty" min="0" required="" step="1" type="number"/></label>
+<label class="span-2">Exceptions (one per line: <code>P1 80</code>)<textarea id="dropOverrides"></textarea></label>
+<label class="span-2">Notes<textarea id="dropNotes"></textarea></label>
+<button class="btn primary span-2">Create 72-design drop</button>
+</form>
+<div class="list" id="earringDropsList"></div>
+</article>
+</div>
+</section></section></div>
+<datalist id="skuList"></datalist>
+<dialog id="receiveDropDialog">
+<form class="dialog-card" id="receiveDropForm" method="dialog">
+<h3>Receive earring drop</h3>
+<input id="receiveDropId" type="hidden"/>
+<label>Total batch cost<input id="receiveDropCost" min="0" required="" step="0.01" type="number"/></label>
+<label>Actual exceptions only<textarea id="receiveDropActuals" placeholder="P1 95
+B5 80"></textarea></label>
+<p class="muted">Codes not listed use their incoming quantity.</p>
+<div class="dialog-actions"><button class="btn" value="cancel">Cancel</button><button class="btn primary" id="receiveDropSubmit" value="default">Receive</button></div>
+</form>
+</dialog></body></html>

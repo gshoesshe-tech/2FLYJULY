@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Settings | 2FLY</title>
+<link rel="stylesheet" href="./styles.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="./config.js"></script><script defer src="./common.js"></script><script defer src="./settings.js"></script></head>
+<body data-page="settings" data-required-role="owner"><div id="toast" class="toast"></div><div class="app-shell"><aside class="sidebar"><div class="side-brand"><div class="logo small">2F</div><div><strong>2FLY System</strong><span>July 2026</span></div></div><nav><a href="./dashboard.html" data-nav="dashboard" class="nav-btn ">Dashboard</a><a href="./orderpage.html" data-nav="orders" class="nav-btn ">Orders</a><a href="./inventory.html" data-nav="inventory" class="nav-btn ">Inventory</a><a href="./production.html" data-nav="production" class="nav-btn management-only">Production</a><a href="./payments.html" data-nav="payments" class="nav-btn ">Payments</a><a href="./expenses.html" data-nav="expenses" class="nav-btn management-only">Expenses</a><a href="./finance.html" data-nav="finance" class="nav-btn management-only">Finance</a><a href="./settings.html" data-nav="settings" class="nav-btn owner-only">Settings</a></nav><div class="side-user"><span id="userEmail">—</span><strong id="userRole">—</strong><button id="logoutBtn" class="btn ghost">Log out</button></div></aside>
+<section class="workspace"><header class="topbar"><div><h2>Settings</h2><p>Owner-only controls and team roles.</p></div><div class="top-actions"><button id="refreshBtn" class="btn">Refresh</button></div></header><section class="page active" id="page-settings">
+<div class="two-col">
+<article class="card"><div class="card-head"><h3>Business settings</h3></div>
+<form class="card-body form-grid" id="settingsForm">
+<label>Owner pay percentage<input id="settingOwnerPercent" max="100" min="0" step="0.1" type="number"/></label>
+<label>Default cutting rate<input id="settingCutRate" min="0" step="0.01" type="number"/></label>
+<label>Default sewer rate<input id="settingSewerRate" min="0" step="0.01" type="number"/></label>
+<button class="btn primary span-2">Save settings</button>
+</form>
+</article>
+<article class="card"><div class="card-head"><h3>Monthly closing</h3></div>
+<div class="card-body form-grid"><label>Month<input id="closeMonth" type="month"/></label><label class="span-2">Notes<textarea id="closeNotes"></textarea></label><button class="btn danger" id="closeMonthBtn">Close month</button><button class="btn" id="reopenMonthBtn">Reopen month</button></div>
+</article>
+</div>
+<article class="card"><div class="card-head"><h3>Team roles</h3></div><div class="table-wrap" id="profilesTable"></div></article>
+<article class="card"><div class="card-head"><h3>Google Sheets backup</h3></div><div class="card-body"><p>Google Apps Script reads the Supabase sync queue and writes one master Orders sheet plus separate J&amp;T, Lalamove, and Walk-in sheets. Follow the included setup guide and keep the Supabase service-role key only inside Apps Script properties.</p></div></article>
+</section></section></div></body></html>

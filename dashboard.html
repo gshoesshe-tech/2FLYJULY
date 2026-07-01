@@ -1,18 +1,88 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dashboard | 2FLY</title>
-<link rel="stylesheet" href="./styles.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="./config.js"></script><script defer src="./common.js"></script><script defer src="./dashboard.js"></script></head>
-<body data-page="dashboard" data-required-role="team"><div id="toast" class="toast"></div><div class="app-shell"><aside class="sidebar"><div class="side-brand"><div class="logo small">2F</div><div><strong>2FLY System</strong><span>July 2026</span></div></div><nav><a href="./dashboard.html" data-nav="dashboard" class="nav-btn ">Dashboard</a><a href="./orderpage.html" data-nav="orders" class="nav-btn ">Orders</a><a href="./inventory.html" data-nav="inventory" class="nav-btn ">Inventory</a><a href="./production.html" data-nav="production" class="nav-btn management-only">Production</a><a href="./payments.html" data-nav="payments" class="nav-btn ">Payments</a><a href="./expenses.html" data-nav="expenses" class="nav-btn management-only">Expenses</a><a href="./finance.html" data-nav="finance" class="nav-btn management-only">Finance</a><a href="./settings.html" data-nav="settings" class="nav-btn owner-only">Settings</a></nav><div class="side-user"><span id="userEmail">—</span><strong id="userRole">—</strong><button id="logoutBtn" class="btn ghost">Log out</button></div></aside>
-<section class="workspace"><header class="topbar"><div><h2>Dashboard</h2><p>Clear numbers from verified records.</p></div><div class="top-actions"><button id="refreshBtn" class="btn">Refresh</button></div></header><section class="page active" id="page-dashboard">
-<div class="toolbar"><label>Month<input id="dashboardMonth" type="month"/></label></div>
-<div class="kpi-grid">
-<article class="kpi"><span>Verified product cash</span><strong id="kpiProductCash">₱0</strong></article>
-<article class="kpi"><span>J&amp;T shipping profit</span><strong id="kpiShippingProfit">₱0</strong></article>
-<article class="kpi"><span>Owner-pay eligible profit</span><strong id="kpiNetProfit">₱0</strong></article>
-<article class="kpi"><span>Owner pay target</span><strong id="kpiOwnerPay">₱0</strong></article>
-</div>
-<div class="two-col">
-<article class="card"><div class="card-head"><h3>Needs attention</h3></div><div class="list" id="exceptionList"></div></article>
-<article class="card management-only"><div class="card-head"><h3>Cash accounts</h3></div><div class="list" id="cashAccountCards"></div></article>
-</div>
-<article class="card"><div class="card-head"><h3>Recent orders</h3></div><div class="table-wrap" id="dashboardOrders"></div></article>
-</section></section></div></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Dashboard | 2FLY</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./config.js"></script>
+  <script defer src="./common.js"></script>
+  <script defer src="./dashboard.js"></script>
+</head>
+<body data-page="dashboard" data-required-role="team">
+  <div id="toast" class="toast"></div>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="side-brand">
+        <div class="logo small">2F</div>
+        <div><strong>2FLY System</strong><span>July 2026</span></div>
+      </div>
+      <nav>
+        <a href="./dashboard.html" data-nav="dashboard" class="nav-btn">Dashboard</a>
+        <a href="./orderpage.html" data-nav="orders" class="nav-btn">Orders</a>
+        <a href="./inventory.html" data-nav="inventory" class="nav-btn">Inventory</a>
+        <a href="./production.html" data-nav="production" class="nav-btn management-only">Production</a>
+        <a href="./payments.html" data-nav="payments" class="nav-btn">Payments</a>
+        <a href="./expenses.html" data-nav="expenses" class="nav-btn management-only">Expenses</a>
+        <a href="./finance.html" data-nav="finance" class="nav-btn management-only">Finance</a>
+        <a href="./settings.html" data-nav="settings" class="nav-btn owner-only">Settings</a>
+      </nav>
+      <div class="side-user">
+        <span id="userEmail">—</span>
+        <strong id="userRole">—</strong>
+        <button id="logoutBtn" class="btn ghost">Log out</button>
+      </div>
+    </aside>
+
+    <section class="workspace">
+      <header class="topbar">
+        <div>
+          <h2>Dashboard</h2>
+          <p>Orders, daily verified sales, and order status.</p>
+        </div>
+        <div class="top-actions">
+          <button id="refreshBtn" class="btn">Refresh</button>
+        </div>
+      </header>
+
+      <section class="page">
+        <div class="toolbar">
+          <label>Month
+            <input id="dashboardMonth" type="month">
+          </label>
+        </div>
+
+        <div class="kpi-grid" style="grid-template-columns:minmax(220px,360px)">
+          <article class="kpi">
+            <span>Total orders</span>
+            <strong id="kpiTotalOrders">0</strong>
+          </article>
+        </div>
+
+        <div class="two-col wide-left">
+          <article class="card">
+            <div class="card-head">
+              <div>
+                <h3>Sales by day</h3>
+                <p>Verified product payments only.</p>
+              </div>
+            </div>
+            <div class="table-wrap" id="salesByDay"></div>
+          </article>
+
+          <article class="card">
+            <div class="card-head">
+              <div>
+                <h3>Status breakdown</h3>
+                <p>Orders in the selected month.</p>
+              </div>
+            </div>
+            <div class="list" id="statusBreakdown"></div>
+          </article>
+        </div>
+      </section>
+    </section>
+  </div>
+</body>
+</html>

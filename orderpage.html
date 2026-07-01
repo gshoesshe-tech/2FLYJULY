@@ -1,61 +1,27 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Orders | 2FLY</title>
-<link rel="stylesheet" href="./styles.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="./config.js"></script><script defer src="./common.js"></script><script defer src="./app.js"></script></head>
-<body data-page="orders" data-required-role="team"><div id="toast" class="toast"></div><div class="app-shell"><aside class="sidebar"><div class="side-brand"><div class="logo small">2F</div><div><strong>2FLY System</strong><span>July 2026</span></div></div><nav><a href="./dashboard.html" data-nav="dashboard" class="nav-btn ">Dashboard</a><a href="./orderpage.html" data-nav="orders" class="nav-btn ">Orders</a><a href="./inventory.html" data-nav="inventory" class="nav-btn ">Inventory</a><a href="./production.html" data-nav="production" class="nav-btn management-only">Production</a><a href="./payments.html" data-nav="payments" class="nav-btn ">Payments</a><a href="./expenses.html" data-nav="expenses" class="nav-btn management-only">Expenses</a><a href="./finance.html" data-nav="finance" class="nav-btn management-only">Finance</a><a href="./settings.html" data-nav="settings" class="nav-btn owner-only">Settings</a></nav><div class="side-user"><span id="userEmail">—</span><strong id="userRole">—</strong><button id="logoutBtn" class="btn ghost">Log out</button></div></aside>
-<section class="workspace"><header class="topbar"><div><h2>Orders</h2><p>Paste, review, verify, and reserve.</p></div><div class="top-actions"><button id="refreshBtn" class="btn">Refresh</button></div></header><section class="page active" id="page-orders">
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Orders | 2FLY</title>
+  <link rel="stylesheet" href="./styles.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="./config.js"></script><script defer src="./common.js"></script><script defer src="./app.js"></script>
+</head>
+<body data-page="orders" data-required-role="team">
+<div id="toast" class="toast"></div><div class="app-shell">
+<aside class="sidebar"><div class="side-brand"><div class="logo small">2F</div><div><strong>2FLY System</strong><span>July 2026</span></div></div><nav><a href="./dashboard.html" data-nav="dashboard" class="nav-btn">Dashboard</a><a href="./orderpage.html" data-nav="orders" class="nav-btn">Orders</a><a href="./inventory.html" data-nav="inventory" class="nav-btn">Inventory</a><a href="./production.html" data-nav="production" class="nav-btn management-only">Production</a><a href="./payments.html" data-nav="payments" class="nav-btn">Payments</a><a href="./expenses.html" data-nav="expenses" class="nav-btn management-only">Expenses</a><a href="./finance.html" data-nav="finance" class="nav-btn management-only">Finance</a><a href="./settings.html" data-nav="settings" class="nav-btn owner-only">Settings</a></nav><div class="side-user"><span id="userEmail">—</span><strong id="userRole">—</strong><button id="logoutBtn" class="btn ghost">Log out</button></div></aside>
+<section class="workspace"><header class="topbar"><div><h2>Orders</h2><p>Paste the customer form, verify payment, reserve stock, and prepare the packing list.</p></div><div class="top-actions"><button id="refreshBtn" class="btn">Refresh</button></div></header>
+<main class="page">
+<div id="editOrderBanner" class="notice info edit-banner hidden"><div><strong>Editing an existing order</strong><br><span id="editOrderLabel">Changes safely recalculate totals and reservations.</span></div><button type="button" class="btn" id="cancelEditBtn">Cancel edit</button></div>
 <div class="two-col wide-left">
-<article class="card">
-<div class="card-head"><div><h3>Paste website order form</h3><p>The parser reads customer details, categories, SKUs, sizes, quantities, and totals.</p></div></div>
-<div class="card-body stack">
-<textarea class="paste-box" id="orderPaste" placeholder="Paste the complete 2FLY.GALLERIA order form here..."></textarea>
-<button class="btn primary" id="parseOrderBtn">Read order</button>
-<div class="notice warn hidden" id="parseWarnings"></div>
+<article class="card"><div class="card-head"><div><h3>Paste website order form</h3><p>The parser reads customer details, categories, SKUs, Pro Club sizes, quantities, and totals.</p></div></div><div class="card-body stack"><textarea class="paste-box" id="orderPaste" placeholder="Paste the complete 2FLY.GALLERIA order form here..."></textarea><button class="btn primary" id="parseOrderBtn">Read order</button><div class="notice warn hidden" id="parseWarnings"></div></div></article>
+<article class="card"><div class="card-head"><h3>Customer and fulfillment</h3></div><div class="card-body form-grid"><label>Name<input id="orderCustomer" required></label><label>Phone<input id="orderPhone"></label><label class="span-2">Address<textarea id="orderAddress"></textarea></label><label>Order type<select id="orderType"><option value="regular">Regular</option><option value="made_to_order">Made to Order</option></select></label><label>Fulfillment<select id="fulfillmentMethod"><option value="unselected">Not selected</option><option value="jnt">J&amp;T</option><option value="lalamove">Lalamove</option><option value="walk_in">Walk-in</option></select></label><label class="hidden" id="releaseDateWrap">Expected release<input id="expectedReleaseDate" type="date"></label><label class="span-2">Notes<textarea id="orderNotes"></textarea></label></div></article>
+<article class="card shipping-card"><div class="card-head"><div><h3>J&amp;T shipping</h3><p>Only two shipping amounts are recorded: what the customer paid and what J&amp;T actually charged.</p></div></div><div class="card-body form-grid cols-3"><label id="shippingFeeWrap">Customer shipping fee (₱)<input id="shippingFee" min="0" step="0.01" type="number" value="0"><small>What the customer paid you for J&amp;T shipping.</small></label><label id="courierCostWrap">Actual courier cost (₱)<input id="courierCost" min="0" step="0.01" type="number" value="0"><small>What J&amp;T actually charged. Enter later if not yet known.</small></label><div class="shipping-profit-box"><span>Shipping profit</span><strong id="shippingProfitPreview">₱0</strong><small>Customer shipping fee minus actual courier cost.</small></div><div class="span-3 notice info" id="shippingHelp">Select J&amp;T to enable the shipping fields. Lalamove and Walk-in stay at ₱0.</div></div></article>
 </div>
-</article>
-<article class="card">
-<div class="card-head"><h3>Customer and fulfillment</h3></div>
-<div class="card-body form-grid">
-<label>Name<input id="orderCustomer" required=""/></label>
-<label>Phone<input id="orderPhone"/></label>
-<label class="span-2">Address<textarea id="orderAddress"></textarea></label>
-<label>Order type<select id="orderType"><option value="regular">Regular</option><option value="made_to_order">Made to Order</option></select></label>
-<label>Fulfillment<select id="fulfillmentMethod"><option value="unselected">Not selected</option><option value="jnt">J&amp;T</option><option value="lalamove">Lalamove</option><option value="walk_in">Walk-in</option></select></label>
-<label class="hidden" id="releaseDateWrap">Expected release<input id="expectedReleaseDate" type="date"/></label>
-<label class="hidden" id="shippingFeeWrap">J&amp;T shipping fee paid<input id="shippingFee" min="0" step="0.01" type="number" value="0"/></label>
-<label class="hidden" id="courierCostWrap">Actual J&amp;T courier cost<input id="courierCost" min="0" step="0.01" type="number" value="0"/></label>
-<label class="span-2">Notes<textarea id="orderNotes"></textarea></label>
-</div>
-</article>
-</div>
-<article class="card">
-<div class="card-head"><div><h3>Parsed items</h3><p id="parsedSummary">No order parsed yet.</p></div><button class="btn" id="addItemBtn">Add item</button></div>
-<div class="table-wrap"><table><thead><tr><th>Category</th><th>SKU</th><th>Size</th><th>Qty</th><th>Unit price</th><th>Total</th><th></th></tr></thead><tbody id="parsedItemsBody"></tbody></table></div>
-</article>
+<article class="card"><div class="card-head"><div><h3>Parsed items</h3><p id="parsedSummary">No order parsed yet.</p></div><button class="btn" id="addItemBtn">Add item</button></div><div class="table-wrap"><table><thead><tr><th>Category</th><th>SKU</th><th>Size</th><th>Qty</th><th>Unit price</th><th>Total</th><th></th></tr></thead><tbody id="parsedItemsBody"></tbody></table></div></article>
 <div class="two-col">
-<article class="card">
-<div class="card-head"><h3>Payment received</h3></div>
-<div class="card-body form-grid">
-<label>Amount received<input id="paymentAmount" min="0" step="0.01" type="number"/></label>
-<label>Method<select id="paymentMethod"><option value="gcash">GCash</option><option value="cash">Cash</option><option value="bank">Bank</option><option value="other">Other</option></select></label>
-<label>Cash account<select id="paymentAccount"></select></label>
-<label>Reference number<input id="paymentReference"/></label>
-<label class="span-2">Payment proof<input accept="image/*,application/pdf" id="paymentProof" type="file"/></label>
-<div class="span-2 totals-panel">
-<div><span>Products</span><strong id="orderProductTotal">₱0</strong></div>
-<div><span>J&amp;T shipping</span><strong id="orderShippingTotal">₱0</strong></div>
-<div><span>Expected payment</span><strong id="orderExpectedTotal">₱0</strong></div>
+<article class="card"><div class="card-head"><h3>Payment received</h3></div><div class="card-body form-grid"><label>Amount received<input id="paymentAmount" min="0" step="0.01" type="number"></label><label>Method<select id="paymentMethod"><option value="gcash">GCash</option><option value="cash">Cash</option><option value="bank">Bank</option><option value="other">Other</option></select></label><label>Cash account<select id="paymentAccount"></select></label><label>Reference number<input id="paymentReference"></label><label class="span-2">Payment proof<input accept="image/*,application/pdf" id="paymentProof" type="file"></label><div class="span-2 totals-panel"><div><span>Products</span><strong id="orderProductTotal">₱0</strong></div><div><span>J&amp;T shipping</span><strong id="orderShippingTotal">₱0</strong></div><div><span>Expected payment</span><strong id="orderExpectedTotal">₱0</strong></div></div></div></article>
+<article class="card"><div class="card-head"><h3>Save order</h3></div><div class="card-body stack"><button class="btn" id="saveReviewBtn">Save for payment review</button><button class="btn primary management-only" id="confirmPaidBtn">Verify payment &amp; confirm order</button><button class="btn primary hidden" id="saveEditBtn">Save order changes</button><p class="muted">Saving for review does not reserve inventory. Stock is reserved after payment verification or management confirmation.</p></div></article>
 </div>
-</div>
-</article>
-<article class="card">
-<div class="card-head"><h3>Save order</h3></div>
-<div class="card-body stack">
-<button class="btn" id="saveReviewBtn">Save for payment review</button>
-<button class="btn primary management-only" id="confirmPaidBtn">Verify payment &amp; confirm order</button>
-<p class="muted">Saving for review does not reserve inventory. Inventory is reserved only after payment verification or an explicit management confirmation.</p>
-</div>
-</article>
-</div>
-<article class="card"><div class="card-head"><h3>Orders</h3><input id="orderSearch" placeholder="Search order, customer, phone or tracking"/></div><div class="table-wrap" id="ordersTable"></div></article>
-</section></section></div>
-<datalist id="skuList"></datalist></body></html>
+<article class="card"><div class="card-head"><div><h3>Orders</h3><p>Open an order to see the original customer form and packing checklist.</p></div><input id="orderSearch" placeholder="Search order, customer, phone or tracking"></div><div class="table-wrap" id="ordersTable"></div></article>
+</main></section></div>
+<datalist id="skuList"></datalist>
+<dialog id="orderDetailDialog"><section class="dialog-card order-detail-card"><div class="dialog-title-row"><div><h3 id="detailOrderTitle">Order details</h3><p id="detailOrderStatus" class="muted"></p></div><button class="btn" id="closeOrderDetailBtn" type="button">Close</button></div><div class="detail-grid"><div><span>Customer</span><strong id="detailCustomer">—</strong></div><div><span>Phone</span><strong id="detailPhone">—</strong></div><div class="span-2"><span>Address</span><strong id="detailAddress">—</strong></div><div><span>Order type</span><strong id="detailOrderType">—</strong></div><div><span>Fulfillment</span><strong id="detailFulfillment">—</strong></div><div><span>Product total</span><strong id="detailProductTotal">₱0</strong></div><div><span>Customer J&amp;T shipping</span><strong id="detailShippingFee">₱0</strong></div><div><span>Verified payment</span><strong id="detailVerified">₱0</strong></div><div><span>Actual courier cost</span><strong id="detailCourierCost">₱0</strong></div><div><span>Shipping profit</span><strong id="detailShippingProfit">₱0</strong></div></div><div class="shipping-editor" id="detailShippingEditor"><h4>Update fulfillment and shipping</h4><p class="muted">For J&amp;T, enter what the customer paid and what the courier actually charged.</p><div class="form-grid cols-3"><label>Fulfillment<select id="detailFulfillmentInput"><option value="unselected">Not selected</option><option value="jnt">J&amp;T</option><option value="lalamove">Lalamove</option><option value="walk_in">Walk-in</option></select></label><label>Customer shipping fee (₱)<input id="detailShippingInput" min="0" step="0.01" type="number"></label><label>Actual courier cost (₱)<input id="detailCourierInput" min="0" step="0.01" type="number"></label><div class="shipping-profit-box"><span>Shipping profit</span><strong id="detailShippingProfitPreview">₱0</strong></div><button class="btn primary" id="saveDetailShippingBtn" type="button">Save shipping details</button></div></div><div><div class="dialog-section-head"><h4>Packing checklist</h4><button class="btn" id="copyPackingListBtn" type="button">Copy packing list</button></div><div id="detailPackingList" class="packing-list"></div></div><div><div class="dialog-section-head"><h4>Original customer order form</h4><button class="btn" id="copyOriginalFormBtn" type="button">Copy form</button></div><pre id="detailRawForm" class="raw-form">No original form saved.</pre></div><div class="dialog-actions"><button class="btn management-only" id="editOrderBtn" type="button">Edit order</button><button class="btn" id="printPackingSlipBtn" type="button">Print packing slip</button></div></section></dialog>
+</body></html>

@@ -1,32 +1,152 @@
 (() => {
   'use strict';
-  const TF=window.TwoFly;
-  async function load(){
-    const {$,state,money,num,today,monthKey,esc,statusPill,isManagement,fail}=TF;
-    try{
-      const m=$('dashboardMonth').value||monthKey();
-      const [{data:fin,error:fe},{data:orders,error:oe},{data:cash,error:ce}]=await Promise.all([
-        state.supa.from('v_monthly_finance').select('*').eq('month_start',m+'-01').maybeSingle(),
-        state.supa.from('v_order_list').select('*').order('created_at',{ascending:false}).limit(100),
-        isManagement()?state.supa.from('v_cash_account_balances').select('*').order('name'):Promise.resolve({data:[],error:null})
-      ]);
-      if(fe||oe||ce) throw fe||oe||ce;
-      const f=fin||{};
-      $('kpiProductCash').textContent=money(f.verified_product_cash);
-      $('kpiShippingProfit').textContent=money(f.shipping_profit);
-      $('kpiNetProfit').textContent=money(f.owner_pay_eligible_profit);
-      $('kpiOwnerPay').textContent=money(f.owner_pay_target);
-      const all=orders||[], exceptions=[], now=today();
-      all.forEach(o=>{
-        if(o.status==='payment_review') exceptions.push([o.order_number,'Payment proof waiting for verification']);
-        if(o.status==='waiting_stock') exceptions.push([o.order_number,`Waiting for stock: ${o.incoming_reserved_quantity||0} incoming, ${o.shortage_quantity||0} short`]);
-        if(o.fulfillment_method==='jnt'&&o.status==='shipped'&&num(o.actual_courier_cost)===0) exceptions.push([o.order_number,'J&T courier cost is still missing']);
-        if(o.order_type==='made_to_order'&&o.expected_release_date&&o.expected_release_date<now&&!['shipped','delivered','cancelled'].includes(o.status)) exceptions.push([o.order_number,'Made-to-order release date has passed']);
-      });
-      $('exceptionList').innerHTML=exceptions.slice(0,20).map(x=>`<div class="list-item"><div><strong>${esc(x[0])}</strong><small>${esc(x[1])}</small></div></div>`).join('')||'<div class="empty">No current exceptions.</div>';
-      $('cashAccountCards').innerHTML=(cash||[]).map(a=>`<div class="list-item"><span>${esc(a.name)}</span><strong>${money(a.current_balance)}</strong></div>`).join('')||'<div class="empty">No cash accounts.</div>';
-      $('dashboardOrders').innerHTML=`<table><thead><tr><th>Order</th><th>Customer</th><th>Method</th><th>Total</th><th>Status</th></tr></thead><tbody>${all.slice(0,12).map(o=>`<tr><td>${esc(o.order_number)}</td><td>${esc(o.customer_name)}</td><td>${esc(o.fulfillment_method)}</td><td>${money(o.total_due)}</td><td>${statusPill(o.status)}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">No orders yet.</td></tr>'}</tbody></table>`;
-    }catch(e){ fail(e,'Dashboard failed'); }
+
+  const TF = window.TwoFly;
+
+  const STATUS_ORDER = [
+    'draft',
+    'payment_review',
+    'confirmed',
+    'waiting_stock',
+    'ready_to_pack',
+    'packing',
+    'shipped',
+    'delivered',
+    'cancelled',
+    'refunded'
+  ];
+
+  const STATUS_LABELS = {
+    draft: 'Draft',
+    payment_review: 'Payment Review',
+    confirmed: 'Paid / Confirmed',
+    waiting_stock: 'Waiting for Stock',
+    ready_to_pack: 'Ready to Pack',
+    packing: 'Packing',
+    shipped: 'Shipped',
+    delivered: 'Delivered',
+    cancelled: 'Cancelled',
+    refunded: 'Refunded'
+  };
+
+  function formatDate(dateString) {
+    if (!dateString) return 'No date';
+    const [year, month, day] = String(dateString).slice(0, 10).split('-');
+    return year && month && day ? `${day}/${month}/${year}` : String(dateString);
   }
-  TF.ready.then(()=>{ TF.$('dashboardMonth').value=TF.monthKey(); TF.$('dashboardMonth').addEventListener('change',load); window.addEventListener('twofly:refresh',load); load(); }).catch(e=>TF.fail(e,'Dashboard failed'));
+
+  async function fetchMonthOrders(month) {
+    const start = `${month}-01`;
+    const end = TF.monthEndExclusive(month);
+    const pageSize = 1000;
+    let from = 0;
+    const all = [];
+
+    while (true) {
+      const { data, error } = await TF.state.supa
+        .from('v_order_list')
+        .select('id,order_date,status,verified_product_paid')
+        .gte('order_date', start)
+        .lt('order_date', end)
+        .order('order_date', { ascending: false })
+        .range(from, from + pageSize - 1);
+
+      if (error) throw error;
+      const batch = Array.isArray(data) ? data : [];
+      all.push(...batch);
+      if (batch.length < pageSize) break;
+      from += pageSize;
+    }
+
+    return all;
+  }
+
+  function renderSalesByDay(orders) {
+    const daily = new Map();
+
+    orders.forEach(order => {
+      const date = order.order_date || 'No date';
+      const row = daily.get(date) || { date, orders: 0, sales: 0 };
+      row.orders += 1;
+
+      if (!['cancelled', 'refunded'].includes(order.status)) {
+        row.sales += TF.num(order.verified_product_paid);
+      }
+
+      daily.set(date, row);
+    });
+
+    const rows = Array.from(daily.values()).sort((a, b) => {
+      if (a.date === 'No date') return 1;
+      if (b.date === 'No date') return -1;
+      return String(b.date).localeCompare(String(a.date));
+    });
+
+    TF.$('salesByDay').innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Orders</th>
+            <th>Verified product sales</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(row => `
+            <tr>
+              <td><strong>${TF.esc(formatDate(row.date))}</strong></td>
+              <td>${row.orders.toLocaleString('en-PH')}</td>
+              <td>${TF.money(row.sales)}</td>
+            </tr>
+          `).join('') || '<tr><td colspan="3" class="empty">No orders for this month.</td></tr>'}
+        </tbody>
+      </table>`;
+  }
+
+  function renderStatusBreakdown(orders) {
+    const counts = new Map();
+    orders.forEach(order => counts.set(order.status, (counts.get(order.status) || 0) + 1));
+
+    const total = orders.length;
+    const statuses = [
+      ...STATUS_ORDER,
+      ...Array.from(counts.keys()).filter(status => !STATUS_ORDER.includes(status))
+    ];
+
+    TF.$('statusBreakdown').innerHTML = statuses
+      .filter(status => (counts.get(status) || 0) > 0)
+      .map(status => {
+        const count = counts.get(status) || 0;
+        const width = total > 0 ? Math.max((count / total) * 100, 2) : 0;
+        return `
+          <div class="list-item" style="display:block">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px">
+              <strong>${TF.esc(STATUS_LABELS[status] || status.replaceAll('_', ' '))}</strong>
+              <span class="pill">${count.toLocaleString('en-PH')}</span>
+            </div>
+            <div class="progress"><span style="width:${width}%"></span></div>
+          </div>`;
+      }).join('') || '<div class="empty">No orders for this month.</div>';
+  }
+
+  async function load() {
+    try {
+      const month = TF.$('dashboardMonth')?.value || TF.monthKey();
+      const orders = await fetchMonthOrders(month);
+
+      TF.$('kpiTotalOrders').textContent = orders.length.toLocaleString('en-PH');
+      renderSalesByDay(orders);
+      renderStatusBreakdown(orders);
+    } catch (error) {
+      TF.fail(error, 'Dashboard failed');
+    }
+  }
+
+  TF.ready.then(() => {
+    const monthInput = TF.$('dashboardMonth');
+    monthInput.value = TF.monthKey();
+    monthInput.addEventListener('change', load);
+    window.addEventListener('twofly:refresh', load);
+    load();
+  }).catch(error => TF.fail(error, 'Dashboard failed'));
 })();

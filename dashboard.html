@@ -9,15 +9,23 @@
   <script src="./config.js"></script>
   <script defer src="./common.js"></script>
   <script defer src="./dashboard.js"></script>
+  <style>
+    .dashboard-kpi-grid{grid-template-columns:repeat(5,minmax(0,1fr))}
+    .status-breakdown{padding:8px 14px}
+    .status-row{padding:10px 0;border-bottom:1px solid var(--line)}
+    .status-row:last-child{border-bottom:0}
+    .status-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:7px}
+    .status-head span{font-weight:700}
+    .status-head strong{font-size:13px}
+    @media(max-width:1200px){.dashboard-kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+    @media(max-width:650px){.dashboard-kpi-grid{grid-template-columns:1fr 1fr}}
+  </style>
 </head>
 <body data-page="dashboard" data-required-role="team">
   <div id="toast" class="toast"></div>
   <div class="app-shell">
     <aside class="sidebar">
-      <div class="side-brand">
-        <div class="logo small">2F</div>
-        <div><strong>2FLY System</strong><span>July 2026</span></div>
-      </div>
+      <div class="side-brand"><div class="logo small">2F</div><div><strong>2FLY System</strong><span>July 2026</span></div></div>
       <nav>
         <a href="./dashboard.html" data-nav="dashboard" class="nav-btn">Dashboard</a>
         <a href="./orderpage.html" data-nav="orders" class="nav-btn">Orders</a>
@@ -28,59 +36,58 @@
         <a href="./finance.html" data-nav="finance" class="nav-btn management-only">Finance</a>
         <a href="./settings.html" data-nav="settings" class="nav-btn owner-only">Settings</a>
       </nav>
-      <div class="side-user">
-        <span id="userEmail">—</span>
-        <strong id="userRole">—</strong>
-        <button id="logoutBtn" class="btn ghost">Log out</button>
-      </div>
+      <div class="side-user"><span id="userEmail">—</span><strong id="userRole">—</strong><button id="logoutBtn" class="btn ghost">Log out</button></div>
     </aside>
 
     <section class="workspace">
       <header class="topbar">
-        <div>
-          <h2>Dashboard</h2>
-          <p>Orders, daily verified sales, and order status.</p>
-        </div>
-        <div class="top-actions">
-          <button id="refreshBtn" class="btn">Refresh</button>
-        </div>
+        <div><h2>Dashboard</h2><p>Clear numbers from verified records.</p></div>
+        <div class="top-actions"><button id="refreshBtn" class="btn">Refresh</button></div>
       </header>
 
       <section class="page">
-        <div class="toolbar">
-          <label>Month
-            <input id="dashboardMonth" type="month">
-          </label>
+        <div class="toolbar management-only"><label>Month<input id="dashboardMonth" type="month"></label></div>
+
+        <!-- Existing dashboard cards kept; Total Orders added -->
+        <div class="kpi-grid dashboard-kpi-grid">
+          <article class="kpi"><span>Total orders</span><strong id="kpiTotalOrders">0</strong></article>
+          <article class="kpi management-only"><span>Verified product cash</span><strong id="kpiProductCash">₱0</strong></article>
+          <article class="kpi management-only"><span>J&amp;T shipping profit</span><strong id="kpiShippingProfit">₱0</strong></article>
+          <article class="kpi management-only"><span>Owner-pay eligible profit</span><strong id="kpiNetProfit">₱0</strong></article>
+          <article class="kpi management-only"><span>Owner pay target</span><strong id="kpiOwnerPay">₱0</strong></article>
         </div>
 
-        <div class="kpi-grid" style="grid-template-columns:minmax(220px,360px)">
-          <article class="kpi">
-            <span>Total orders</span>
-            <strong id="kpiTotalOrders">0</strong>
-          </article>
-        </div>
-
+        <!-- New sections only -->
         <div class="two-col wide-left">
           <article class="card">
-            <div class="card-head">
-              <div>
-                <h3>Sales by day</h3>
-                <p>Verified product payments only.</p>
-              </div>
-            </div>
+            <div class="card-head"><div><h3>Sales by day</h3><p>Orders and verified product sales for the selected month.</p></div></div>
             <div class="table-wrap" id="salesByDay"></div>
           </article>
-
           <article class="card">
-            <div class="card-head">
-              <div>
-                <h3>Status breakdown</h3>
-                <p>Orders in the selected month.</p>
-              </div>
-            </div>
-            <div class="list" id="statusBreakdown"></div>
+            <div class="card-head"><div><h3>Status breakdown</h3><p>Current order statuses for the selected month.</p></div></div>
+            <div id="statusBreakdown" class="status-breakdown"></div>
           </article>
         </div>
+
+        <!-- Existing dashboard sections kept -->
+        <div class="two-col">
+          <article class="card">
+            <div class="card-head"><div><h3>Needs attention</h3><p>Items that require action today.</p></div></div>
+            <div class="list" id="exceptionList"></div>
+          </article>
+          <article class="card management-only">
+            <div class="card-head"><h3>Cash accounts</h3></div>
+            <div class="list" id="cashAccountCards"></div>
+          </article>
+        </div>
+
+        <article class="card">
+          <div class="card-head">
+            <div><h3>Recent orders</h3><p>Open the Orders page for full customer forms and packing lists.</p></div>
+            <a class="btn" href="./orderpage.html">Open orders</a>
+          </div>
+          <div class="table-wrap" id="dashboardOrders"></div>
+        </article>
       </section>
     </section>
   </div>

@@ -116,19 +116,25 @@
         .order('created_at', { ascending: false })
         .limit(300);
 
-      const [financeResult, recentResult, cashResult, monthOrders] = await Promise.all([
+      const dailyPromise = TF.isManagement()
+        ? TF.state.supa.from('v_daily_operations_v5').select('*').single()
+        : Promise.resolve({ data: null, error: null });
+
+      const [financeResult, recentResult, cashResult, monthOrders, dailyResult] = await Promise.all([
         financePromise,
         recentPromise,
         cashPromise,
-        fetchMonthOrders(month)
+        fetchMonthOrders(month),
+        dailyPromise
       ]);
 
-      const error = financeResult.error || recentResult.error || cashResult.error;
+      const error = financeResult.error || recentResult.error || cashResult.error || dailyResult.error;
       if (error) throw error;
 
       const fin = financeResult.data || {};
       const recentOrders = recentResult.data || [];
       const cash = cashResult.data || [];
+      const daily = dailyResult.data || {};
       const today = TF.today();
 
       // Added dashboard figures.
@@ -148,6 +154,17 @@
             <span>${TF.esc(account.name)}</span>
             <strong>${TF.money(account.current_balance)}</strong>
           </div>`).join('') || '<div class="empty">No cash accounts.</div>';
+
+        TF.$('dailyChecks').innerHTML = [
+          ['Verified payments', daily.verified_payments_today || 0],
+          ['Verified cash', TF.money(daily.verified_cash_today)],
+          ['Orders confirmed', daily.confirmed_orders_today || 0],
+          ['Ready to pack', daily.ready_to_pack_now || 0],
+          ['Shipped today', daily.shipped_today || 0],
+          ['Missing courier cost', daily.missing_courier_cost || 0],
+          ['Cash in', TF.money(daily.cash_in_today)],
+          ['Cash out', TF.money(daily.cash_out_today)]
+        ].map(([label,value]) => `<div class="summary-box"><span>${TF.esc(label)}</span><strong>${value}</strong></div>`).join('');
       }
 
       const exceptions = [];
@@ -161,7 +178,7 @@
         if (order.status === 'ready_to_pack') {
           exceptions.push({ order, issue: 'Paid and ready to pack', page: 'orderpage.html' });
         }
-        if (order.fulfillment_method === 'jnt' && ['shipped', 'delivered'].includes(order.status) && TF.num(order.actual_courier_cost) === 0) {
+        if (order.fulfillment_method === 'jnt' && ['shipped', 'delivered'].includes(order.status) && !order.courier_cost_finalized) {
           exceptions.push({ order, issue: 'Actual J&T courier cost is missing', page: 'orderpage.html' });
         }
         if (order.order_type === 'made_to_order' && order.expected_release_date && order.expected_release_date < today && !['shipped', 'delivered', 'cancelled'].includes(order.status)) {

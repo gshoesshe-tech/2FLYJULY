@@ -4,7 +4,7 @@
   let parsedItems=[], orders=[], lastExpected=0, activeDetailOrder=null, activeDetailItems=[], editingOrderId=null;
 
   function fillSelects(){
-    const {$,state,accountOptions}=TF;
+    const {$,state,accountOptions,today}=TF;
     $('paymentAccount').innerHTML=accountOptions(true);$('orderDate').value=today();$('paymentDate').value=today();
     $('skuList').innerHTML=state.products.map(p=>`<option value="${TF.esc(p.code)}">${TF.esc(p.name)}</option>`).join('');
   }

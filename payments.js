@@ -17,7 +17,7 @@
     return out.join('');
   }
   function table(rows,emptyText){
-    return `<table><thead><tr><th>Date</th><th>Order</th><th>Customer</th><th>Amount</th><th>Method / Account</th><th>Reference</th><th>Status</th><th>Actions</th></tr></thead><tbody>${rows.map(p=>`<tr><td>${TF.esc(p.payment_date)}</td><td>${TF.esc(p.orders?.order_number||'Unlinked')}</td><td>${TF.esc(p.orders?.customer_name||'')}</td><td><strong>${TF.money(p.amount)}</strong></td><td>${TF.esc(p.payment_method)}<br><small>${TF.esc(p.cash_accounts?.name||'No account')}</small></td><td>${TF.esc(p.reference_number||'—')}</td><td>${TF.statusPill(p.status)}</td><td><div class="row-actions">${actionButtons(p)}</div></td></tr>`).join('')||`<tr><td colspan="8" class="empty">${TF.esc(emptyText)}</td></tr>`}</tbody></table>`;
+    return `<table><thead><tr><th>Date</th><th>Order</th><th>Customer</th><th>Amount</th><th>Method / Account</th><th>Reference</th><th>Status</th><th>Actions</th></tr></thead><tbody>${rows.map(p=>`<tr><td>${TF.esc(p.payment_date)}</td><td>${TF.esc(p.orders?.order_number||'Unlinked')}</td><td>${TF.esc(p.orders?.customer_name||'')}</td><td><strong>${TF.money(p.amount)}</strong>${p.is_opening_payment?' <span class="pill warn">Opening cash</span>':''}</td><td>${TF.esc(p.payment_method)}<br><small>${p.is_opening_payment?'Already included in opening cash':TF.esc(p.cash_accounts?.name||'No account')}</small></td><td>${TF.esc(p.reference_number||'—')}</td><td>${TF.statusPill(p.status)}</td><td><div class="row-actions">${actionButtons(p)}</div></td></tr>`).join('')||`<tr><td colspan="8" class="empty">${TF.esc(emptyText)}</td></tr>`}</tbody></table>`;
   }
   async function load(){
     try{
@@ -82,7 +82,7 @@
     try{
       if(target.dataset.proof){await openProof(p);return;}
       if(target.dataset.editPayment){openEdit(p);return;}
-      if(target.dataset.verify){const {error}=await TF.state.supa.rpc('verify_payment',{p_payment_id:id});if(error)throw error;TF.toast('Payment verified and allocated');await load();return;}
+      if(target.dataset.verify){const {error}=await TF.state.supa.rpc('verify_payment_v6',{p_payment_id:id});if(error)throw error;TF.toast('Payment verified and allocated');await load();return;}
       if(target.dataset.change)await changeStatus(p,target.dataset.status);
     }catch(err){TF.fail(err,'Payment action failed');}
   }

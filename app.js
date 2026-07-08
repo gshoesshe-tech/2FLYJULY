@@ -5,7 +5,7 @@
 
   function fillSelects(){
     const {$,state,accountOptions}=TF;
-    $('paymentAccount').innerHTML=accountOptions(true);
+    $('paymentAccount').innerHTML=accountOptions(true);$('orderDate').value=today();$('paymentDate').value=today();
     $('skuList').innerHTML=state.products.map(p=>`<option value="${TF.esc(p.code)}">${TF.esc(p.name)}</option>`).join('');
   }
   function parseOrder(){
@@ -77,6 +77,13 @@
     $('orderProductTotal').textContent=money(product);$('orderShippingTotal').textContent=money(shipping);$('orderExpectedTotal').textContent=money(total);$('shippingProfitPreview').textContent=courier===null?'Pending':money(shipping-courier);$('parsedSummary').textContent=`${parsedItems.length} lines • ${parsedItems.reduce((a,i)=>a+num(i.quantity),0)} pieces • ${money(product)}`;
     if(syncPayment){const current=num($('paymentAmount').value);if(!current||Math.abs(current-lastExpected)<.02)$('paymentAmount').value=total.toFixed(2);} lastExpected=total;
   }
+  function updateOpeningPaymentMode(){
+    const migrated=TF.$('openingPaymentIncluded')?.checked&&TF.isOwner();
+    TF.$('openingPaymentHelp')?.classList.toggle('hidden',!migrated);
+    TF.$('paymentAccount').disabled=migrated;
+    if(migrated)TF.$('paymentAccount').value='';
+    if(TF.$('confirmPaidBtn'))TF.$('confirmPaidBtn').textContent=migrated?'Import paid order & reserve':'Verify payment & confirm order';
+  }
   async function uploadProof(){
     const {$,state,today}=TF,file=$('paymentProof').files[0];if(!file)return'';
     const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,'-'),path=`${state.session.user.id}/${today()}/${crypto.randomUUID()}-${safe}`;
@@ -90,14 +97,14 @@
       for(const i of parsedItems){const p=state.productByCode.get(i.sku.toUpperCase());if(p.requires_size&&!p.allowed_sizes.includes(String(i.size).toUpperCase()))throw new Error(`${i.sku} needs a valid size.`);if(num(i.quantity)<=0)throw new Error(`Invalid quantity for ${i.sku}`);}
       if(!$('orderCustomer').value.trim())throw new Error('Customer name is required.');
       if($('orderType').value==='made_to_order'&&!$('expectedReleaseDate').value)throw new Error('Made-to-order requires an expected release date.');
-      const amount=num($('paymentAmount').value);if(confirmNow&&amount<=0)throw new Error('Enter the verified payment amount.');
+      const amount=num($('paymentAmount').value),migrated=$('openingPaymentIncluded')?.checked&&TF.isOwner();if(confirmNow&&amount<=0)throw new Error('Enter the verified payment amount.');if(confirmNow&&!migrated&&amount>0&&!$('paymentAccount').value)throw new Error('Select the cash account that received the payment.');
       const raw=$('orderPaste').value.trim(),fingerprint=raw?await sha256(raw):await sha256(JSON.stringify(parsedItems)+$('orderPhone').value+Date.now()),proof=amount>0?await uploadProof():'';
-      const order={raw_order_form:raw,form_fingerprint:fingerprint,customer_name:$('orderCustomer').value.trim(),phone:$('orderPhone').value.trim(),address:$('orderAddress').value.trim(),order_type:$('orderType').value,fulfillment_method:$('fulfillmentMethod').value,expected_release_date:$('expectedReleaseDate').value||null,shipping_fee_due:$('fulfillmentMethod').value==='jnt'?num($('shippingFee').value):0,actual_courier_cost:$('fulfillmentMethod').value==='jnt'&&$('courierCost').value.trim()!==''?num($('courierCost').value):0,notes:$('orderNotes').value.trim(),order_date:today()};
+      const order={raw_order_form:raw,form_fingerprint:fingerprint,customer_name:$('orderCustomer').value.trim(),phone:$('orderPhone').value.trim(),address:$('orderAddress').value.trim(),order_type:$('orderType').value,fulfillment_method:$('fulfillmentMethod').value,expected_release_date:$('expectedReleaseDate').value||null,shipping_fee_due:$('fulfillmentMethod').value==='jnt'?num($('shippingFee').value):0,actual_courier_cost:$('fulfillmentMethod').value==='jnt'&&$('courierCost').value.trim()!==''?num($('courierCost').value):0,notes:$('orderNotes').value.trim(),order_date:$('orderDate').value||today()};
       const items=parsedItems.map(i=>({sku:i.sku.toUpperCase(),size:String(i.size||'').toUpperCase(),quantity:num(i.quantity),unit_price:num(i.unit_price)}));
-      const payment=amount>0?{payment_date:today(),amount,payment_method:$('paymentMethod').value,cash_account_id:$('paymentAccount').value||null,reference_number:$('paymentReference').value.trim(),proof_storage_path:proof}:null;
-      const {data,error}=await state.supa.rpc('create_order',{p_order:order,p_items:items,p_payment:payment,p_verify_and_confirm:confirmNow});if(error)throw error;
+      const payment=amount>0?{payment_date:$('paymentDate').value||today(),amount,payment_method:$('paymentMethod').value,cash_account_id:$('paymentAccount').value||null,reference_number:$('paymentReference').value.trim(),proof_storage_path:proof}:null;
+      const result=migrated?await state.supa.rpc('create_migrated_order_v6',{p_order:order,p_items:items,p_payment_amount:amount,p_payment_date:$('paymentDate').value||today(),p_payment_method:$('paymentMethod').value,p_reference_number:$('paymentReference').value.trim(),p_confirm_and_reserve:confirmNow}):await state.supa.rpc('create_order',{p_order:order,p_items:items,p_payment:payment,p_verify_and_confirm:confirmNow});const {data,error}=result;if(error)throw error;
       if(order.fulfillment_method==='jnt'&&$('courierCost').value.trim()!==''){const shippingUpdate=await state.supa.rpc('update_order_shipping',{p_order_id:data.order_id,p_fulfillment_method:'jnt',p_shipping_fee_due:order.shipping_fee_due,p_actual_courier_cost:num($('courierCost').value)});if(shippingUpdate.error)throw shippingUpdate.error;}
-      toast(confirmNow?'Paid order confirmed and inventory reserved':'Order saved for payment review');resetForm();await loadOrders();
+      toast(migrated?(confirmNow?'Migrated paid order imported and inventory reserved':'Migrated order saved without adding cash again'):(confirmNow?'Paid order confirmed and inventory reserved':'Order saved for payment review'));resetForm();await loadOrders();
     }catch(e){fail(e,'Order not saved');}finally{setLoading(button,false);}
   }
   function setEditMode(active,order=null){
@@ -106,7 +113,7 @@
     TF.$('saveReviewBtn').classList.toggle('hidden',active);
     TF.$('confirmPaidBtn').classList.toggle('hidden',active||!TF.isManagement());
     TF.$('saveEditBtn').classList.toggle('hidden',!active);
-    ['paymentAmount','paymentMethod','paymentAccount','paymentReference','paymentProof'].forEach(id=>{if(TF.$(id))TF.$(id).disabled=active;});
+    ['paymentAmount','paymentMethod','paymentAccount','paymentReference','paymentProof','paymentDate','openingPaymentIncluded','orderDate'].forEach(id=>{if(TF.$(id))TF.$(id).disabled=active;});
     if(active&&order)TF.$('editOrderLabel').textContent=`Editing ${order.order_number}. Saved changes will recalculate totals and active reservations.`;
   }
   async function startEditOrder(order){
@@ -114,7 +121,7 @@
       if(['packing','shipped','delivered','cancelled','refunded'].includes(order.status))throw new Error('This order can no longer be edited.');
       const {data,error}=await TF.state.supa.from('order_items').select('*').eq('order_id',order.id).order('line_number');if(error)throw error;
       parsedItems=(data||[]).map(i=>({sku:i.sku_text,size:i.size||'',quantity:Number(i.quantity),unit_price:Number(i.unit_price),name:i.product_name_snapshot||i.sku_text,category:''}));
-      TF.$('orderPaste').value=order.raw_order_form||'';TF.$('orderCustomer').value=order.customer_name||'';TF.$('orderPhone').value=order.phone||'';TF.$('orderAddress').value=order.address||'';TF.$('orderType').value=order.order_type||'regular';TF.$('fulfillmentMethod').value=order.fulfillment_method||'unselected';TF.$('expectedReleaseDate').value=order.expected_release_date||'';TF.$('shippingFee').value=Number(order.shipping_fee_due||0).toFixed(2);TF.$('courierCost').value=order.courier_cost_finalized?Number(order.actual_courier_cost||0).toFixed(2):'';TF.$('orderNotes').value=order.notes||'';TF.$('paymentAmount').value=Number(order.verified_total_paid||0).toFixed(2);
+      TF.$('orderPaste').value=order.raw_order_form||'';TF.$('orderCustomer').value=order.customer_name||'';TF.$('orderPhone').value=order.phone||'';TF.$('orderAddress').value=order.address||'';TF.$('orderDate').value=order.order_date||TF.today();TF.$('orderType').value=order.order_type||'regular';TF.$('fulfillmentMethod').value=order.fulfillment_method||'unselected';TF.$('expectedReleaseDate').value=order.expected_release_date||'';TF.$('shippingFee').value=Number(order.shipping_fee_due||0).toFixed(2);TF.$('courierCost').value=order.courier_cost_finalized?Number(order.actual_courier_cost||0).toFixed(2):'';TF.$('orderNotes').value=order.notes||'';TF.$('paymentAmount').value=Number(order.verified_total_paid||0).toFixed(2);
       setEditMode(true,order);renderItems();updateConditions();if(TF.$('orderDetailDialog').open)TF.$('orderDetailDialog').close();window.scrollTo({top:0,behavior:'smooth'});
     }catch(e){TF.fail(e,'Order edit could not start');}
   }
@@ -136,14 +143,14 @@
     }catch(e){TF.fail(e,'Order changes not saved');}finally{TF.setLoading(btn,false);}
   }
   function resetForm(){
-    const {$}=TF;setEditMode(false);parsedItems=[];['orderPaste','orderCustomer','orderPhone','orderAddress','orderNotes','paymentAmount','paymentReference'].forEach(id=>$(id).value='');$('paymentProof').value='';$('shippingFee').value='0';$('courierCost').value='';$('orderType').value='regular';$('fulfillmentMethod').value='unselected';$('expectedReleaseDate').value='';$('parseWarnings').classList.add('hidden');renderItems();updateConditions();
+    const {$}=TF;setEditMode(false);parsedItems=[];['orderPaste','orderCustomer','orderPhone','orderAddress','orderNotes','paymentAmount','paymentReference'].forEach(id=>$(id).value='');$('paymentProof').value='';$('openingPaymentIncluded').checked=false;$('orderDate').value=TF.today();$('paymentDate').value=TF.today();updateOpeningPaymentMode();$('shippingFee').value='0';$('courierCost').value='';$('orderType').value='regular';$('fulfillmentMethod').value='unselected';$('expectedReleaseDate').value='';$('parseWarnings').classList.add('hidden');renderItems();updateConditions();
   }
   async function loadOrders(){
     const {state,fail}=TF;try{const {data,error}=await state.supa.from('v_order_list').select('*').order('created_at',{ascending:false}).limit(500);if(error)throw error;orders=data||[];renderOrders();}catch(e){fail(e,'Orders failed');}
   }
   function renderOrders(){
     const {$,esc,money,statusPill,isManagement}=TF,q=$('orderSearch').value.trim().toLowerCase(),rows=orders.filter(o=>!q||[o.order_number,o.customer_name,o.phone,o.tracking_number,o.status].some(v=>String(v||'').toLowerCase().includes(q)));
-    $('ordersTable').innerHTML=`<table><thead><tr><th>Order</th><th>Customer</th><th>Type / Method</th><th>Amounts</th><th>Status</th><th>Stock</th><th>Actions</th></tr></thead><tbody>${rows.map(o=>{const actions=[`<button class="btn" data-action="view" data-id="${o.id}">View</button>`];if(isManagement()&&!['packing','shipped','delivered','cancelled','refunded'].includes(o.status))actions.push(`<button class="btn" data-action="edit" data-id="${o.id}">Edit</button>`);if(isManagement()&&['draft','payment_review'].includes(o.status)&&['paid','overpaid'].includes(o.payment_status))actions.push(`<button class="btn primary" data-action="reserve" data-id="${o.id}">Confirm</button>`);if(isManagement()&&o.status==='ready_to_pack')actions.push(`<button class="btn primary" data-action="packing" data-id="${o.id}">Start packing</button>`);if(isManagement()&&o.status==='packing')actions.push(`<button class="btn primary" data-action="ship" data-id="${o.id}">Ship / release</button>`);if(isManagement()&&o.status==='shipped')actions.push(`<button class="btn" data-action="deliver" data-id="${o.id}">Delivered</button>`);if(isManagement()&&!['cancelled','refunded','delivered'].includes(o.status))actions.push(`<button class="btn danger" data-action="cancel" data-id="${o.id}">Cancel</button>`);return `<tr><td><strong>${esc(o.order_number)}</strong><br><small>${esc(o.order_date)}</small></td><td>${esc(o.customer_name)}<br><small>${esc(o.phone||'')}</small></td><td>${esc(o.order_type.replaceAll('_',' '))}<br>${esc(o.fulfillment_method.toUpperCase().replace('_','-'))}</td><td>${money(o.product_total)} products${o.fulfillment_method==='jnt'?`<br><small>${money(o.shipping_fee_due)} shipping / ${o.courier_cost_finalized?money(o.actual_courier_cost):'courier pending'}</small>`:''}<br><small>${money(o.verified_total_paid)} verified</small></td><td>${statusPill(o.status)} ${statusPill(o.payment_status)}</td><td>${o.shortage_quantity?`<span class="pill danger">Short ${o.shortage_quantity}</span>`:''}${o.incoming_reserved_quantity?` <span class="pill warn">Incoming ${o.incoming_reserved_quantity}</span>`:''}</td><td><div class="row-actions">${actions.join('')}</div></td></tr>`;}).join('')||'<tr><td colspan="7" class="empty">No orders found.</td></tr>'}</tbody></table>`;
+    $('ordersTable').innerHTML=`<table><thead><tr><th>Order</th><th>Customer</th><th>Type / Method</th><th>Amounts</th><th>Status</th><th>Stock</th><th>Actions</th></tr></thead><tbody>${rows.map(o=>{const actions=[`<button class="btn" data-action="view" data-id="${o.id}">View</button>`];if(isManagement()&&!['packing','shipped','delivered','cancelled','refunded'].includes(o.status))actions.push(`<button class="btn" data-action="edit" data-id="${o.id}">Edit</button>`);if(isManagement()&&['draft','payment_review'].includes(o.status)&&['paid','overpaid'].includes(o.payment_status))actions.push(`<button class="btn primary" data-action="reserve" data-id="${o.id}">Confirm</button>`);if(isManagement()&&o.status==='ready_to_pack')actions.push(`<button class="btn primary" data-action="packing" data-id="${o.id}">Start packing</button>`);if(isManagement()&&o.status==='packing')actions.push(`<button class="btn primary" data-action="ship" data-id="${o.id}">Ship / release</button>`);if(isManagement()&&o.status==='shipped')actions.push(`<button class="btn" data-action="deliver" data-id="${o.id}">Delivered</button>`);if(isManagement()&&!['cancelled','refunded','delivered'].includes(o.status))actions.push(`<button class="btn danger" data-action="cancel" data-id="${o.id}">Cancel</button>`);return `<tr><td><strong>${esc(o.order_number)}</strong>${o.is_migrated_order?' <span class="pill warn">Migrated</span>':''}<br><small>${esc(o.order_date)}</small></td><td>${esc(o.customer_name)}<br><small>${esc(o.phone||'')}</small></td><td>${esc(o.order_type.replaceAll('_',' '))}<br>${esc(o.fulfillment_method.toUpperCase().replace('_','-'))}</td><td>${money(o.product_total)} products${o.fulfillment_method==='jnt'?`<br><small>${money(o.shipping_fee_due)} shipping / ${o.courier_cost_finalized?money(o.actual_courier_cost):'courier pending'}</small>`:''}<br><small>${money(o.verified_total_paid)} verified</small></td><td>${statusPill(o.status)} ${statusPill(o.payment_status)}</td><td>${o.shortage_quantity?`<span class="pill danger">Short ${o.shortage_quantity}</span>`:''}${o.incoming_reserved_quantity?` <span class="pill warn">Incoming ${o.incoming_reserved_quantity}</span>`:''}</td><td><div class="row-actions">${actions.join('')}</div></td></tr>`;}).join('')||'<tr><td colspan="7" class="empty">No orders found.</td></tr>'}</tbody></table>`;
   }
 
   async function copyText(text,successMessage){
@@ -250,13 +257,13 @@
     }catch(err){TF.fail(err,'Order action failed');}
   }
   TF.ready.then(()=>{
-    fillSelects(); renderItems(); updateConditions();
+    fillSelects();updateOpeningPaymentMode(); renderItems(); updateConditions();
     TF.$('parseOrderBtn').addEventListener('click',parseOrder);
     TF.$('addItemBtn').addEventListener('click',()=>{parsedItems.push({category:'',sku:'',size:'',quantity:1,unit_price:0,name:''});renderItems();});
     TF.$('parsedItemsBody').addEventListener('input',editItem);
     TF.$('parsedItemsBody').addEventListener('click',e=>{const b=e.target.closest('[data-remove]');if(b){parsedItems.splice(Number(b.dataset.remove),1);renderItems();}});
     TF.$('orderType').addEventListener('change',updateConditions);TF.$('fulfillmentMethod').addEventListener('change',updateConditions);TF.$('shippingFee').addEventListener('input',()=>updateTotals(true));TF.$('courierCost').addEventListener('input',()=>updateTotals(false));
-    TF.$('saveReviewBtn').addEventListener('click',()=>submitOrder(false));TF.$('confirmPaidBtn').addEventListener('click',()=>submitOrder(true));TF.$('saveEditBtn').addEventListener('click',saveEditedOrder);TF.$('cancelEditBtn').addEventListener('click',resetForm);TF.$('orderSearch').addEventListener('input',renderOrders);TF.$('ordersTable').addEventListener('click',orderAction);
+    TF.$('saveReviewBtn').addEventListener('click',()=>submitOrder(false));TF.$('confirmPaidBtn').addEventListener('click',()=>submitOrder(true));TF.$('openingPaymentIncluded').addEventListener('change',updateOpeningPaymentMode);TF.$('saveEditBtn').addEventListener('click',saveEditedOrder);TF.$('cancelEditBtn').addEventListener('click',resetForm);TF.$('orderSearch').addEventListener('input',renderOrders);TF.$('ordersTable').addEventListener('click',orderAction);
     TF.$('closeOrderDetailBtn').addEventListener('click',()=>TF.$('orderDetailDialog').close());
     TF.$('copyPackingListBtn').addEventListener('click',()=>activeDetailOrder&&copyText(packingText(activeDetailOrder,activeDetailItems),'Packing list copied'));
     TF.$('copyOriginalFormBtn').addEventListener('click',()=>activeDetailOrder&&copyText(activeDetailOrder.raw_order_form||'','Original form copied'));

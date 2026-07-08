@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Opening Setup | 2FLY</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./config.js"></script>
+  <script defer src="./common.js"></script>
+  <script defer src="./opening.js"></script>
+</head>
+<body data-page="opening" data-required-role="owner">
+<div id="toast" class="toast"></div>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="side-brand"><div class="logo small">2F</div><div><strong>2FLY System</strong><span>July 2026</span></div></div>
+    <nav>
+      <a href="./dashboard.html" data-nav="dashboard" class="nav-btn">Dashboard</a>
+      <a href="./orderpage.html" data-nav="orders" class="nav-btn">Orders</a>
+      <a href="./inventory.html" data-nav="inventory" class="nav-btn">Inventory</a>
+      <a href="./production.html" data-nav="production" class="nav-btn management-only">Production</a>
+      <a href="./payments.html" data-nav="payments" class="nav-btn">Payments</a>
+      <a href="./expenses.html" data-nav="expenses" class="nav-btn management-only">Expenses</a>
+      <a href="./finance.html" data-nav="finance" class="nav-btn management-only">Finance</a>
+      <a href="./opening.html" data-nav="opening" class="nav-btn owner-only">Opening Setup</a>
+      <a href="./settings.html" data-nav="settings" class="nav-btn owner-only">Settings</a>
+    </nav>
+    <div class="side-user"><span id="userEmail">—</span><strong id="userRole">—</strong><button id="logoutBtn" class="btn ghost">Log out</button></div>
+  </aside>
+
+  <section class="workspace">
+    <header class="topbar"><div><h2>Opening Setup</h2><p>Bring your real starting cash, stocks, and ongoing production into the system without deducting them twice.</p></div><div class="top-actions"><button id="refreshBtn" class="btn">Refresh</button></div></header>
+    <main class="page">
+      <div id="openingStatusNotice" class="notice info"></div>
+
+      <div class="kpi-grid six">
+        <article class="kpi"><span>Opening cash</span><strong id="openingCashKpi">₱0</strong></article>
+        <article class="kpi"><span>Opening stock pieces</span><strong id="openingInventoryKpi">0</strong></article>
+        <article class="kpi"><span>Costed stock value</span><strong id="openingInventoryValueKpi">₱0</strong></article>
+        <article class="kpi"><span>Unused garters</span><strong id="openingGarterKpi">0</strong></article>
+        <article class="kpi"><span>Ongoing production value</span><strong id="openingWipKpi">₱0</strong></article>
+        <article class="kpi"><span>Migrated paid orders</span><strong id="openingOrdersKpi">0</strong></article>
+      </div>
+
+      <div class="two-col">
+        <article class="card">
+          <div class="card-head"><div><h3>Official starting point</h3><p>The date your clean records begin.</p></div></div>
+          <form class="card-body form-grid opening-form" id="openingSetupForm">
+            <label>System start date<input id="openingStartDate" type="date" required></label>
+            <label class="span-2">Notes<textarea id="openingSetupNotes" placeholder="Example: July 1 stock count used as opening inventory."></textarea></label>
+            <button class="btn primary">Save starting point</button>
+            <button class="btn danger" type="button" id="finalizeOpeningBtn">Finalize setup</button>
+            <button class="btn hidden" type="button" id="reopenOpeningBtn">Reopen setup</button>
+          </form>
+        </article>
+
+        <article class="card">
+          <div class="card-head"><div><h3>Opening cash account</h3><p>Money that already existed at the starting point. This is not sales.</p></div></div>
+          <form class="card-body form-grid opening-form" id="openingCashForm">
+            <label>Account name<input id="openingCashName" placeholder="GCash Main" required></label>
+            <label>Type<select id="openingCashType"><option value="gcash">GCash</option><option value="bank">Bank</option><option value="cash">Cash on Hand</option><option value="other">Other</option></select></label>
+            <label>Opening balance<input id="openingCashBalance" type="number" min="0" step="0.01" required></label>
+            <label class="span-2">Notes<textarea id="openingCashNotes" placeholder="Balance as of the system start date."></textarea></label>
+            <button class="btn primary span-2">Save cash account</button>
+          </form>
+        </article>
+      </div>
+
+      <div class="two-col">
+        <article class="card">
+          <div class="card-head"><div><h3>Opening finished inventory</h3><p>Use your July 1 physical count. Exact designs remain in orders; stock is tracked by category.</p></div></div>
+          <form class="card-body form-grid opening-form" id="openingInventoryForm">
+            <label>Category<select id="openingInventoryCategory"></select></label>
+            <label>Old stock — unknown cost<input id="openingLegacyQty" type="number" min="0" step="1" value="0"></label>
+            <label>New/costed stock<input id="openingCostedQty" type="number" min="0" step="1" value="0"></label>
+            <label>Cost per costed piece<input id="openingCostedUnitCost" type="number" min="0" step="0.0001" value="0"></label>
+            <label class="span-2">Reason / note<textarea id="openingInventoryReason" placeholder="July 1 physical stock count"></textarea></label>
+            <button class="btn primary span-2">Set exact opening stock</button>
+          </form>
+        </article>
+
+        <article class="card">
+          <div class="card-head"><div><h3>Unused opening garter stock</h3><p>Only include garters not yet assigned to the ongoing production batch.</p></div></div>
+          <form class="card-body form-grid opening-form" id="openingGarterForm">
+            <label>Exact usable pieces<input id="openingGarterPieces" type="number" min="0" step="1" value="0" required></label>
+            <label>Total value<input id="openingGarterCost" type="number" min="0" step="0.01" value="0" required></label>
+            <label>Originally paid on<input id="openingGarterPaidDate" type="date"></label>
+            <label>Supplier<input id="openingGarterSupplier"></label>
+            <label class="span-2">Notes<textarea id="openingGarterNotes" placeholder="Paid before the system started; do not deduct cash again."></textarea></label>
+            <button class="btn primary span-2">Set opening garter stock</button>
+          </form>
+        </article>
+      </div>
+
+      <div class="two-col">
+        <article class="card">
+          <div class="card-head"><div><h3>Unused opening fabric</h3><p>Use this only for fabric still unused on the starting date.</p></div></div>
+          <form class="card-body form-grid opening-form" id="openingFabricForm">
+            <label class="span-2">Description<input id="openingFabricDescription" placeholder="Black cotton spandex — unused rolls" required></label>
+            <label>Total value<input id="openingFabricCost" type="number" min="0.01" step="0.01" required></label>
+            <label>Originally paid on<input id="openingFabricPaidDate" type="date"></label>
+            <label>Supplier<input id="openingFabricSupplier"></label>
+            <label class="span-2">Notes<textarea id="openingFabricNotes"></textarea></label>
+            <button class="btn primary span-2">Add opening fabric</button>
+          </form>
+        </article>
+
+        <article class="card">
+          <div class="card-head"><div><h3>Existing production — already paid materials</h3><p>Create your current July batch without reducing cash for fabric, garter, or cutting already paid before setup.</p></div></div>
+          <form class="card-body form-grid opening-form" id="openingProductionForm">
+            <label>Batch number<input id="openingBatchNumber" placeholder="JULY-BOXERS-001" required></label>
+            <label>Category<select id="openingBatchCategory"></select></label>
+            <label>Originally started<input id="openingBatchOriginalDate" type="date"></label>
+            <label>Total pieces cut<input id="openingBatchCutQty" type="number" min="1" step="1" required></label>
+            <label>Expected good output<input id="openingBatchExpectedGood" type="number" min="1" step="1" required></label>
+            <label>Fabric cost already paid<input id="openingBatchFabricCost" type="number" min="0" step="0.01" value="0"></label>
+            <label>Garters already assigned<input id="openingBatchGarterQty" type="number" min="0" step="1" value="0"></label>
+            <label>Garter cost already paid<input id="openingBatchGarterCost" type="number" min="0" step="0.01" value="0"></label>
+            <label>Cutting cost already paid<input id="openingBatchCuttingCost" type="number" min="0" step="0.01" value="0"></label>
+            <label>Sewer rate per finished piece<input id="openingBatchSewerRate" type="number" min="0" step="0.01"></label><label>Good output already received before start<input id="openingBatchPriorGood" type="number" min="0" step="1" value="0"><small>Only use this when those finished pieces are already included in your opening inventory count.</small></label><label>Rejected before start<input id="openingBatchPriorRejects" type="number" min="0" step="1" value="0"></label><label>Sewer cost already paid before start<input id="openingBatchPriorSewerCost" type="number" min="0" step="0.01" value="0"></label>
+            <label class="span-2">Notes<textarea id="openingBatchNotes" placeholder="Materials were bought before the system. Sewer will be paid per pullout."></textarea></label>
+            <div class="span-2 notice info" id="openingBatchSummary">Enter the production costs and expected output.</div>
+            <button class="btn primary span-2">Create existing production batch</button>
+          </form>
+        </article>
+      </div>
+
+      <article class="card"><div class="card-head"><div><h3>Opening cash accounts</h3><p>Current balances are opening balance plus recorded cash movements.</p></div></div><div class="table-wrap" id="openingCashTable"></div></article>
+      <article class="card"><div class="card-head"><div><h3>Opening inventory by category</h3></div></div><div class="table-wrap" id="openingInventoryTable"></div></article>
+      <article class="card"><div class="card-head"><div><h3>Existing production batches</h3><p>Use Production for every partial pullout and sewer payment.</p></div><a class="btn" href="./production.html">Open Production</a></div><div class="table-wrap" id="openingProductionTable"></div></article>
+      <article class="card"><div class="card-head"><div><h3>Recent opening entries</h3></div></div><div class="table-wrap" id="openingEntriesTable"></div></article>
+    </main>
+  </section>
+</div>
+</body>
+</html>

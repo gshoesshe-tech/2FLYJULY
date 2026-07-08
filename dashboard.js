@@ -103,7 +103,7 @@
       const month = TF.$('dashboardMonth')?.value || TF.monthKey();
 
       const financePromise = TF.isManagement()
-        ? TF.state.supa.from('v_monthly_finance').select('*').eq('month_start', `${month}-01`).maybeSingle()
+        ? TF.state.supa.from('v_monthly_finance_v6').select('*').eq('month_start', `${month}-01`).maybeSingle()
         : Promise.resolve({ data: null, error: null });
 
       const cashPromise = TF.isManagement()
@@ -117,7 +117,7 @@
         .limit(300);
 
       const dailyPromise = TF.isManagement()
-        ? TF.state.supa.from('v_daily_operations_v5').select('*').single()
+        ? TF.state.supa.from('v_daily_operations_v6').select('*').single()
         : Promise.resolve({ data: null, error: null });
 
       const [financeResult, recentResult, cashResult, monthOrders, dailyResult] = await Promise.all([

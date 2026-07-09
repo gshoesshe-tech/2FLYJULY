@@ -3,6 +3,12 @@
   const TF=window.TwoFly;
   let incoming=[];
 
+  function inventoryUnit(code,quantity=1){
+    if(code==='EARRINGS')return quantity===1?'pair':'pairs';
+    if(code==='CRYSTAL_CASE')return 'pcs';
+    return 'pcs';
+  }
+
   function fill(){
     const cats=TF.categoryOptions();
     TF.$('adjustCategory').innerHTML=cats;
@@ -37,7 +43,13 @@
       TF.$('invCosted').textContent=rows.reduce((a,x)=>a+TF.num(x.costed_on_hand),0).toLocaleString();
       if(TF.isManagement())TF.$('invValue').textContent=TF.money(rows.reduce((a,x)=>a+TF.num(x.costed_inventory_value),0));
       TF.$('inventoryPermissionNotice').classList.toggle('hidden',TF.isManagement());
-      TF.$('inventoryTable').innerHTML=`<table><thead><tr><th>Category</th><th>On hand</th><th>Reserved</th><th>Available</th><th>Incoming</th><th class="management-only">Average cost</th><th class="management-only">Tracked value</th></tr></thead><tbody>${rows.map(x=>`<tr><td><strong>${TF.esc(x.category_name)}</strong></td><td>${TF.num(x.total_on_hand).toLocaleString()}<br><small>${TF.num(x.legacy_on_hand)} old / ${TF.num(x.costed_on_hand)} costed</small></td><td>${TF.num(x.total_reserved).toLocaleString()}</td><td><strong>${TF.num(x.total_available).toLocaleString()}</strong></td><td>${TF.num(x.incoming_unreserved).toLocaleString()}<br><small>${TF.num(x.incoming_reserved)} reserved incoming</small></td><td class="management-only">${TF.money(x.weighted_average_cost)}</td><td class="management-only">${TF.money(x.costed_inventory_value)}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">No inventory categories.</td></tr>'}</tbody></table>`;
+      const earrings=rows.find(x=>x.category_code==='EARRINGS');
+      const cases=rows.find(x=>x.category_code==='CRYSTAL_CASE');
+      const caseShortage=Math.max(TF.num(earrings?.total_available)-TF.num(cases?.total_available),0);
+      const caseNotice=caseShortage>0
+        ? `<div class="notice warn"><strong>Crystal Case shortage:</strong> Earrings available ${TF.num(earrings?.total_available).toLocaleString()} pairs, but only ${TF.num(cases?.total_available).toLocaleString()} cases are available. Add at least ${caseShortage.toLocaleString()} cases to match your earring stock.</div>`
+        : (earrings&&cases?`<div class="notice info">Crystal Cases cover all currently available Earrings. Rule: 1 pair = 1 case.</div>`:'');
+      TF.$('inventoryTable').innerHTML=`${caseNotice}<table><thead><tr><th>Category</th><th>On hand</th><th>Reserved</th><th>Available</th><th>Incoming</th><th class="management-only">Average cost</th><th class="management-only">Tracked value</th></tr></thead><tbody>${rows.map(x=>{const unit=inventoryUnit(x.category_code,TF.num(x.total_on_hand));return `<tr><td><strong>${TF.esc(x.category_name)}</strong><br><small>Unit: ${unit}</small></td><td>${TF.num(x.total_on_hand).toLocaleString()} ${unit}<br><small>${TF.num(x.legacy_on_hand)} old / ${TF.num(x.costed_on_hand)} costed</small></td><td>${TF.num(x.total_reserved).toLocaleString()} ${inventoryUnit(x.category_code,TF.num(x.total_reserved))}</td><td><strong>${TF.num(x.total_available).toLocaleString()} ${inventoryUnit(x.category_code,TF.num(x.total_available))}</strong></td><td>${TF.num(x.incoming_unreserved).toLocaleString()} ${inventoryUnit(x.category_code,TF.num(x.incoming_unreserved))}<br><small>${TF.num(x.incoming_reserved)} reserved incoming</small></td><td class="management-only">${TF.money(x.weighted_average_cost)} / ${x.category_code==='EARRINGS'?'pair':'pc'}</td><td class="management-only">${TF.money(x.costed_inventory_value)}</td></tr>`;}).join('')||'<tr><td colspan="7" class="empty">No inventory categories.</td></tr>'}</tbody></table>`;
       if(TF.isManagement()){
         TF.$('incomingTable').innerHTML=`<table><thead><tr><th>Batch</th><th>Category</th><th>Expected</th><th>Planned</th><th>Reserved</th><th>Received</th><th>Status</th><th></th></tr></thead><tbody>${incoming.map(x=>`<tr><td><strong>${TF.esc(x.batch_name)}</strong></td><td>${TF.esc(x.category_name)}</td><td>${TF.esc(x.expected_date||'—')}</td><td>${TF.num(x.incoming_quantity)}</td><td>${TF.num(x.reserved_quantity)}</td><td>${TF.num(x.received_quantity)}</td><td>${TF.statusPill(x.status)}</td><td>${['incoming','partially_received'].includes(x.status)?`<button class="btn primary small" data-receive="${x.id}">Receive</button>`:''}</td></tr>`).join('')||'<tr><td colspan="8" class="empty">No incoming batches.</td></tr>'}</tbody></table>`;
         const g=garterR.data||{};

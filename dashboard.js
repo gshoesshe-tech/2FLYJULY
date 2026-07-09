@@ -120,21 +120,27 @@
         ? TF.state.supa.from('v_daily_operations_v6').select('*').single()
         : Promise.resolve({ data: null, error: null });
 
-      const [financeResult, recentResult, cashResult, monthOrders, dailyResult] = await Promise.all([
+      const inventoryPromise = TF.state.supa
+        .from('v_inventory_summary')
+        .select('category_code,category_name,total_available,total_reserved,total_on_hand');
+
+      const [financeResult, recentResult, cashResult, monthOrders, dailyResult, inventoryResult] = await Promise.all([
         financePromise,
         recentPromise,
         cashPromise,
         fetchMonthOrders(month),
-        dailyPromise
+        dailyPromise,
+        inventoryPromise
       ]);
 
-      const error = financeResult.error || recentResult.error || cashResult.error || dailyResult.error;
+      const error = financeResult.error || recentResult.error || cashResult.error || dailyResult.error || inventoryResult.error;
       if (error) throw error;
 
       const fin = financeResult.data || {};
       const recentOrders = recentResult.data || [];
       const cash = cashResult.data || [];
       const daily = dailyResult.data || {};
+      const inventoryRows = inventoryResult.data || [];
       const today = TF.today();
 
       // Added dashboard figures.
@@ -168,6 +174,22 @@
       }
 
       const exceptions = [];
+      const earrings = inventoryRows.find((row) => row.category_code === 'EARRINGS');
+      const crystalCases = inventoryRows.find((row) => row.category_code === 'CRYSTAL_CASE');
+      const caseShortage = Math.max(
+        TF.num(earrings?.total_available) - TF.num(crystalCases?.total_available),
+        0
+      );
+
+      if (caseShortage > 0) {
+        exceptions.push({
+          type: 'inventory',
+          title: 'Crystal Case shortage',
+          issue: `${TF.num(earrings?.total_available).toLocaleString()} earring pairs available but only ${TF.num(crystalCases?.total_available).toLocaleString()} cases. Add ${caseShortage.toLocaleString()} cases.`,
+          page: 'inventory.html'
+        });
+      }
+
       recentOrders.forEach((order) => {
         if (order.status === 'payment_review') {
           exceptions.push({ order, issue: 'Payment proof or payment details need review', page: 'payments.html' });
@@ -191,7 +213,7 @@
 
       TF.$('exceptionList').innerHTML = exceptions.slice(0, 30).map((item) => `
         <div class="list-item">
-          <div><strong>${TF.esc(item.order.order_number)}</strong><small>${TF.esc(item.issue)}</small></div>
+          <div><strong>${TF.esc(item.type === 'inventory' ? item.title : item.order.order_number)}</strong><small>${TF.esc(item.issue)}</small></div>
           <a class="btn" href="./${item.page}">Open</a>
         </div>`).join('') || '<div class="empty">No current exceptions.</div>';
 

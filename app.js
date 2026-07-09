@@ -3,6 +3,20 @@
   const TF=window.TwoFly;
   let parsedItems=[], orders=[], lastExpected=0, activeDetailOrder=null, activeDetailItems=[], editingOrderId=null;
 
+  function categoryCodeForItem(item){
+    return TF.state.categoryById.get(item?.category_id)?.code||item?.category_code||'';
+  }
+  function unitLabelForCode(code,quantity=1){
+    if(code==='EARRINGS')return quantity===1?'pair':'pairs';
+    if(code==='CRYSTAL_CASE')return 'pcs';
+    return 'pcs';
+  }
+  function orderItemLabel(item){
+    return item?.is_system_included
+      ? (item.product_name_snapshot||'Crystal Case (included with Earrings)')
+      : (item.sku_text||item.product_name_snapshot||'Item');
+  }
+
   function fillSelects(){
     const {$,state,accountOptions,today}=TF;
     $('paymentAccount').innerHTML=accountOptions(true);$('orderDate').value=today();$('paymentDate').value=today();
@@ -47,7 +61,7 @@
     $('parsedItemsBody').innerHTML=parsedItems.map((i,idx)=>{
       const p=state.productByCode.get(String(i.sku).toUpperCase()); const cat=p?state.categoryById.get(p.category_id):null;
       const sizes=p?.requires_size?`<select data-field="size" data-i="${idx}"><option value="">Select</option>${p.allowed_sizes.map(s=>`<option ${s===i.size?'selected':''}>${s}</option>`).join('')}</select>`:`<input data-field="size" data-i="${idx}" value="${esc(i.size||'')}" placeholder="—">`;
-      return `<tr><td>${esc(cat?.name||i.category||'Unknown')}</td><td><input data-field="sku" data-i="${idx}" value="${esc(i.sku)}" list="skuList"></td><td>${sizes}</td><td><input data-field="quantity" data-i="${idx}" type="number" min="1" step="1" value="${i.quantity}"></td><td><input data-field="unit_price" data-i="${idx}" type="number" min="0" step="0.01" value="${Number(i.unit_price).toFixed(2)}"></td><td>${money(i.quantity*i.unit_price)}</td><td><button class="btn danger" data-remove="${idx}">Remove</button></td></tr>`;
+      return `<tr><td>${esc(cat?.name||i.category||'Unknown')}</td><td><input data-field="sku" data-i="${idx}" value="${esc(i.sku)}" list="skuList"></td><td>${sizes}</td><td><input data-field="quantity" data-i="${idx}" type="number" min="1" step="1" value="${i.quantity}"><small>${unitLabelForCode(cat?.code,i.quantity)}</small></td><td><input data-field="unit_price" data-i="${idx}" type="number" min="0" step="0.01" value="${Number(i.unit_price).toFixed(2)}"></td><td>${money(i.quantity*i.unit_price)}</td><td><button class="btn danger" data-remove="${idx}">Remove</button></td></tr>`;
     }).join('')||'<tr><td colspan="7" class="empty">Paste and read an order form.</td></tr>';
     updateTotals();
   }
@@ -74,7 +88,13 @@
   function updateTotals(syncPayment=false){
     const {$,money,num}=TF;
     const product=parsedItems.reduce((a,i)=>a+num(i.quantity)*num(i.unit_price),0),shipping=$('fulfillmentMethod').value==='jnt'?num($('shippingFee').value):0,courierRaw=$('courierCost').value.trim(),courier=courierRaw===''?null:num(courierRaw),total=product+shipping;
-    $('orderProductTotal').textContent=money(product);$('orderShippingTotal').textContent=money(shipping);$('orderExpectedTotal').textContent=money(total);$('shippingProfitPreview').textContent=courier===null?'Pending':money(shipping-courier);$('parsedSummary').textContent=`${parsedItems.length} lines • ${parsedItems.reduce((a,i)=>a+num(i.quantity),0)} pieces • ${money(product)}`;
+    $('orderProductTotal').textContent=money(product);$('orderShippingTotal').textContent=money(shipping);$('orderExpectedTotal').textContent=money(total);$('shippingProfitPreview').textContent=courier===null?'Pending':money(shipping-courier);
+    const earringPairs=parsedItems.reduce((totalQty,item)=>{
+      const product=TF.state.productByCode.get(String(item.sku||'').toUpperCase());
+      const code=product?TF.state.categoryById.get(product.category_id)?.code:item.category_code;
+      return totalQty+(code==='EARRINGS'?num(item.quantity):0);
+    },0);
+    $('parsedSummary').textContent=`${parsedItems.length} product lines • ${parsedItems.reduce((a,i)=>a+num(i.quantity),0)} sale units • ${money(product)}${earringPairs?` • ${earringPairs} crystal cases included automatically`:''}`;
     if(syncPayment){const current=num($('paymentAmount').value);if(!current||Math.abs(current-lastExpected)<.02)$('paymentAmount').value=total.toFixed(2);} lastExpected=total;
   }
   function updateOpeningPaymentMode(){
@@ -120,7 +140,7 @@
     try{
       if(['packing','shipped','delivered','cancelled','refunded'].includes(order.status))throw new Error('This order can no longer be edited.');
       const {data,error}=await TF.state.supa.from('order_items').select('*').eq('order_id',order.id).order('line_number');if(error)throw error;
-      parsedItems=(data||[]).map(i=>({sku:i.sku_text,size:i.size||'',quantity:Number(i.quantity),unit_price:Number(i.unit_price),name:i.product_name_snapshot||i.sku_text,category:''}));
+      parsedItems=(data||[]).filter(i=>!i.is_system_included).map(i=>({sku:i.sku_text,size:i.size||'',quantity:Number(i.quantity),unit_price:Number(i.unit_price),name:i.product_name_snapshot||i.sku_text,category:''}));
       TF.$('orderPaste').value=order.raw_order_form||'';TF.$('orderCustomer').value=order.customer_name||'';TF.$('orderPhone').value=order.phone||'';TF.$('orderAddress').value=order.address||'';TF.$('orderDate').value=order.order_date||TF.today();TF.$('orderType').value=order.order_type||'regular';TF.$('fulfillmentMethod').value=order.fulfillment_method||'unselected';TF.$('expectedReleaseDate').value=order.expected_release_date||'';TF.$('shippingFee').value=Number(order.shipping_fee_due||0).toFixed(2);TF.$('courierCost').value=order.courier_cost_finalized?Number(order.actual_courier_cost||0).toFixed(2):'';TF.$('orderNotes').value=order.notes||'';TF.$('paymentAmount').value=Number(order.verified_total_paid||0).toFixed(2);
       setEditMode(true,order);renderItems();updateConditions();if(TF.$('orderDetailDialog').open)TF.$('orderDetailDialog').close();window.scrollTo({top:0,behavior:'smooth'});
     }catch(e){TF.fail(e,'Order edit could not start');}
@@ -150,7 +170,7 @@
   }
   function renderOrders(){
     const {$,esc,money,statusPill,isManagement}=TF,q=$('orderSearch').value.trim().toLowerCase(),rows=orders.filter(o=>!q||[o.order_number,o.customer_name,o.phone,o.tracking_number,o.status].some(v=>String(v||'').toLowerCase().includes(q)));
-    $('ordersTable').innerHTML=`<table><thead><tr><th>Order</th><th>Customer</th><th>Type / Method</th><th>Amounts</th><th>Status</th><th>Stock</th><th>Actions</th></tr></thead><tbody>${rows.map(o=>{const actions=[`<button class="btn" data-action="view" data-id="${o.id}">View</button>`];if(isManagement()&&!['packing','shipped','delivered','cancelled','refunded'].includes(o.status))actions.push(`<button class="btn" data-action="edit" data-id="${o.id}">Edit</button>`);if(isManagement()&&['draft','payment_review'].includes(o.status)&&['paid','overpaid'].includes(o.payment_status))actions.push(`<button class="btn primary" data-action="reserve" data-id="${o.id}">Confirm</button>`);if(isManagement()&&o.status==='ready_to_pack')actions.push(`<button class="btn primary" data-action="packing" data-id="${o.id}">Start packing</button>`);if(isManagement()&&o.status==='packing')actions.push(`<button class="btn primary" data-action="ship" data-id="${o.id}">Ship / release</button>`);if(isManagement()&&o.status==='shipped')actions.push(`<button class="btn" data-action="deliver" data-id="${o.id}">Delivered</button>`);if(isManagement()&&!['cancelled','refunded','delivered'].includes(o.status))actions.push(`<button class="btn danger" data-action="cancel" data-id="${o.id}">Cancel</button>`);return `<tr><td><strong>${esc(o.order_number)}</strong>${o.is_migrated_order?' <span class="pill warn">Migrated</span>':''}<br><small>${esc(o.order_date)}</small></td><td>${esc(o.customer_name)}<br><small>${esc(o.phone||'')}</small></td><td>${esc(o.order_type.replaceAll('_',' '))}<br>${esc(o.fulfillment_method.toUpperCase().replace('_','-'))}</td><td>${money(o.product_total)} products${o.fulfillment_method==='jnt'?`<br><small>${money(o.shipping_fee_due)} shipping / ${o.courier_cost_finalized?money(o.actual_courier_cost):'courier pending'}</small>`:''}<br><small>${money(o.verified_total_paid)} verified</small></td><td>${statusPill(o.status)} ${statusPill(o.payment_status)}</td><td>${o.shortage_quantity?`<span class="pill danger">Short ${o.shortage_quantity}</span>`:''}${o.incoming_reserved_quantity?` <span class="pill warn">Incoming ${o.incoming_reserved_quantity}</span>`:''}</td><td><div class="row-actions">${actions.join('')}</div></td></tr>`;}).join('')||'<tr><td colspan="7" class="empty">No orders found.</td></tr>'}</tbody></table>`;
+    $('ordersTable').innerHTML=`<table><thead><tr><th>Order</th><th>Customer</th><th>Type / Method</th><th>Amounts</th><th>Status</th><th>Stock</th><th>Actions</th></tr></thead><tbody>${rows.map(o=>{const actions=[`<button class="btn" data-action="view" data-id="${o.id}">View</button>`];if(isManagement()&&!['packing','shipped','delivered','cancelled','refunded'].includes(o.status))actions.push(`<button class="btn" data-action="edit" data-id="${o.id}">Edit</button>`);if(isManagement()&&['draft','payment_review','confirmed'].includes(o.status)&&['paid','overpaid'].includes(o.payment_status))actions.push(`<button class="btn primary" data-action="reserve" data-id="${o.id}">Confirm</button>`);if(isManagement()&&o.status==='waiting_stock'&&['paid','overpaid'].includes(o.payment_status))actions.push(`<button class="btn primary" data-action="reserve" data-id="${o.id}">Retry stock</button>`);if(isManagement()&&o.status==='ready_to_pack')actions.push(`<button class="btn primary" data-action="packing" data-id="${o.id}">Start packing</button>`);if(isManagement()&&o.status==='packing')actions.push(`<button class="btn primary" data-action="ship" data-id="${o.id}">Ship / release</button>`);if(isManagement()&&o.status==='shipped')actions.push(`<button class="btn" data-action="deliver" data-id="${o.id}">Delivered</button>`);if(isManagement()&&!['cancelled','refunded','delivered'].includes(o.status))actions.push(`<button class="btn danger" data-action="cancel" data-id="${o.id}">Cancel</button>`);return `<tr><td><strong>${esc(o.order_number)}</strong>${o.is_migrated_order?' <span class="pill warn">Migrated</span>':''}<br><small>${esc(o.order_date)}</small></td><td>${esc(o.customer_name)}<br><small>${esc(o.phone||'')}</small></td><td>${esc(o.order_type.replaceAll('_',' '))}<br>${esc(o.fulfillment_method.toUpperCase().replace('_','-'))}</td><td>${money(o.product_total)} products${o.fulfillment_method==='jnt'?`<br><small>${money(o.shipping_fee_due)} shipping / ${o.courier_cost_finalized?money(o.actual_courier_cost):'courier pending'}</small>`:''}<br><small>${money(o.verified_total_paid)} verified</small></td><td>${statusPill(o.status)} ${statusPill(o.payment_status)}</td><td>${o.shortage_quantity?`<span class="pill danger">Short ${o.shortage_quantity}</span>`:''}${o.incoming_reserved_quantity?` <span class="pill warn">Incoming ${o.incoming_reserved_quantity}</span>`:''}</td><td><div class="row-actions">${actions.join('')}</div></td></tr>`;}).join('')||'<tr><td colspan="7" class="empty">No orders found.</td></tr>'}</tbody></table>`;
   }
 
   async function copyText(text,successMessage){
@@ -168,7 +188,7 @@
       `Address: ${order.address||'—'}`,
       `Fulfillment: ${String(order.fulfillment_method||'').toUpperCase().replace('_','-')}`,
       '',
-      ...items.map(i=>`☐ ${i.sku_text}${i.size?` (Size: ${i.size})`:''} ×${i.quantity}`),
+      ...items.map(i=>{const code=categoryCodeForItem(i);return `☐ ${orderItemLabel(i)}${i.size?` (Size: ${i.size})`:''} ×${i.quantity} ${unitLabelForCode(code,i.quantity)}${i.is_system_included?' — FREE / AUTO-INCLUDED':''}`;}),
       '',
       `Products: ${TF.money(order.product_total)}`,
       `J&T shipping: ${TF.money(order.shipping_fee_due)}`,
@@ -195,7 +215,7 @@
     TF.$('detailShippingInput').value=Number(order.shipping_fee_due||0).toFixed(2);
     TF.$('detailCourierInput').value=order.courier_cost_finalized?Number(order.actual_courier_cost||0).toFixed(2):'';
     const isJnt=order.fulfillment_method==='jnt';TF.$('detailShippingInput').disabled=!isJnt;TF.$('detailCourierInput').disabled=!isJnt;TF.$('detailShippingProfitPreview').textContent=order.courier_cost_finalized?TF.money(Number(order.shipping_fee_due||0)-Number(order.actual_courier_cost||0)):'Pending';
-    TF.$('detailPackingList').innerHTML=activeDetailItems.map(i=>`<label class="packing-row"><input type="checkbox"><span><strong>${TF.esc(i.sku_text)}</strong>${i.size?` <small>(Size: ${TF.esc(i.size)})</small>`:''} ×${i.quantity}</span></label>`).join('')||'<div class="empty">No items found.</div>';
+    TF.$('detailPackingList').innerHTML=activeDetailItems.map(i=>{const code=categoryCodeForItem(i);return `<label class="packing-row"><input type="checkbox"><span><strong>${TF.esc(orderItemLabel(i))}</strong>${i.size?` <small>(Size: ${TF.esc(i.size)})</small>`:''} ×${i.quantity} ${unitLabelForCode(code,i.quantity)}${i.is_system_included?' <span class="pill ok">Free · automatic</span>':''}</span></label>`;}).join('')||'<div class="empty">No items found.</div>';
     TF.$('detailRawForm').textContent=order.raw_order_form||'No original form was saved for this order.';
     TF.$('editOrderBtn').classList.toggle('hidden',!TF.isManagement()||['packing','shipped','delivered','cancelled','refunded'].includes(order.status));
     if(!TF.$('orderDetailDialog').open)TF.$('orderDetailDialog').showModal();

@@ -89,7 +89,20 @@
     if(required==='owner'&&!isOwner()){ location.replace('./dashboard.html'); return false; }
     return true;
   }
+  function ensureInboundDeliveriesNav(){
+    const nav=document.querySelector('.sidebar nav');
+    if(!nav||nav.querySelector('[data-nav="deliveries"]')) return;
+    const link=document.createElement('a');
+    link.href='./deliveries.html';
+    link.dataset.nav='deliveries';
+    link.className='nav-btn management-only';
+    link.textContent='Inbound Deliveries';
+    const production=nav.querySelector('[data-nav="production"]');
+    if(production) production.insertAdjacentElement('afterend',link);
+    else nav.appendChild(link);
+  }
   function initShell(){
+    ensureInboundDeliveriesNav();
     if($('userEmail')) $('userEmail').textContent=state.profile.email||state.session.user.email||'—';
     if($('userRole')) $('userRole').textContent=String(state.role).toUpperCase();
     const active=document.body.dataset.page;

@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Inbound Deliveries | 2FLY</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./config.js"></script>
+  <script defer src="./common.js"></script>
+  <script defer src="./deliveries.js"></script>
+  <style>
+    .allocation-row{display:grid;grid-template-columns:1.1fr 1.8fr .85fr .75fr 1.4fr auto;gap:10px;align-items:end;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--panel-2)}
+    .allocation-row+.allocation-row{margin-top:10px}
+    .allocation-row label{min-width:0}
+    .allocation-row .btn{margin-bottom:1px}
+    .allocation-help{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .allocation-help .summary-box{min-height:105px}
+    .route-arrow{color:var(--muted);padding:0 4px}
+    @media(max-width:1100px){.allocation-row{grid-template-columns:1fr 1fr}.allocation-row .allocation-notes{grid-column:1/-1}.allocation-row .remove-allocation{justify-self:start}}
+    @media(max-width:650px){.allocation-row,.allocation-help{grid-template-columns:1fr}}
+  </style>
+</head>
+<body data-page="deliveries" data-required-role="management">
+<div id="toast" class="toast"></div>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="side-brand"><div class="logo small">2F</div><div><strong>2FLY System</strong><span>July 2026</span></div></div>
+    <nav>
+      <a href="./dashboard.html" data-nav="dashboard" class="nav-btn">Dashboard</a>
+      <a href="./orderpage.html" data-nav="orders" class="nav-btn">Orders</a>
+      <a href="./inventory.html" data-nav="inventory" class="nav-btn">Inventory</a>
+      <a href="./production.html" data-nav="production" class="nav-btn management-only">Production</a>
+      <a href="./payments.html" data-nav="payments" class="nav-btn">Payments</a>
+      <a href="./expenses.html" data-nav="expenses" class="nav-btn management-only">Expenses</a>
+      <a href="./finance.html" data-nav="finance" class="nav-btn management-only">Finance</a>
+      <a href="./opening.html" data-nav="opening" class="nav-btn owner-only">Opening Setup</a>
+      <a href="./settings.html" data-nav="settings" class="nav-btn owner-only">Settings</a>
+    </nav>
+    <div class="side-user"><span id="userEmail">—</span><strong id="userRole">—</strong><button id="logoutBtn" class="btn ghost">Log out</button></div>
+  </aside>
+
+  <section class="workspace">
+    <header class="topbar">
+      <div><h2>Inbound Deliveries</h2><p>Record supplier and production Lalamove trips once, then divide the fee across the products carried.</p></div>
+      <div class="top-actions"><button id="refreshBtn" class="btn">Refresh</button></div>
+    </header>
+
+    <main class="page">
+      <div class="notice info"><strong>Simple rule:</strong> one ride, one cash payment, one or more cost allocations. Do not record the same ride again in Expenses.</div>
+
+      <div class="kpi-grid">
+        <article class="kpi"><span>Trips this month</span><strong id="deliveryTripsMonth">0</strong></article>
+        <article class="kpi"><span>Inbound cost this month</span><strong id="deliveryCostMonth">₱0</strong></article>
+        <article class="kpi"><span>Cash paid this month</span><strong id="deliveryCashMonth">₱0</strong></article>
+        <article class="kpi"><span>Paid before system</span><strong id="deliveryOpeningMonth">₱0</strong></article>
+      </div>
+
+      <article class="card">
+        <div class="card-head"><div><h3>Record an inbound Lalamove trip</h3><p>Use this for supplier → production, tahian → Taytay, Taytay → shop, and supplier → shop.</p></div></div>
+        <form class="card-body" id="deliveryForm">
+          <div class="form-grid">
+            <label>Date<input id="deliveryDate" type="date" required></label>
+            <label>Total Lalamove fee<input id="deliveryFee" type="number" min="0.01" step="0.01" required></label>
+            <label>From<input id="deliveryOrigin" placeholder="Example: Fabric supplier" required></label>
+            <label>To<input id="deliveryDestination" placeholder="Example: Taytay production area" required></label>
+            <label>Payment treatment<select id="deliveryPaymentMode"><option value="paid_now">Paid now / after system start</option><option value="paid_before">Paid before system start</option></select></label>
+            <label id="deliveryAccountWrap">Paid from<select id="deliveryAccount" required></select></label>
+            <label>Reference number<input id="deliveryReference" placeholder="Optional Lalamove booking/ref"></label>
+            <label>Notes<input id="deliveryNotes" placeholder="Optional trip details"></label>
+          </div>
+
+          <div class="card-head compact"><div><h3>Divide the fee</h3><p>The allocated amounts below must equal the full Lalamove fee.</p></div><button id="addAllocationBtn" type="button" class="btn">Add allocation</button></div>
+          <div id="allocationRows"></div>
+          <div id="allocationSummary" class="notice warn" style="margin-top:12px">Allocated ₱0 of ₱0.</div>
+          <div class="dialog-actions"><button class="btn primary" type="submit">Save inbound delivery</button></div>
+        </form>
+      </article>
+
+      <article class="card">
+        <div class="card-head"><div><h3>Where should the fee go?</h3><p>Choose the target that matches what the trip carried.</p></div></div>
+        <div class="card-body allocation-help">
+          <div class="summary-box"><span>Fabric purchase</span><strong>Supplier → production area</strong><small>Adds delivery to the fabric value before it is assigned to a batch.</small></div>
+          <div class="summary-box"><span>Production batch</span><strong>Before finished pullouts</strong><small>Use for an ongoing batch when the delivery should be spread across future output.</small></div>
+          <div class="summary-box"><span>Production pullout</span><strong>Tahian → Taytay</strong><small>Attaches the fee to one specific partial pullout and its finished-product cost.</small></div>
+          <div class="summary-box"><span>Inventory category</span><strong>Taytay/supplier → shop</strong><small>Use for Earrings, Tank Tops, Boxers, or shared finished-product rides already received into stock.</small></div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-head"><div><h3>Inbound delivery history</h3><p>Voiding reverses the cash movement and cost allocation only when it is still safe to reverse.</p></div><label>Month<input id="deliveryMonth" type="month"></label></div>
+        <div class="table-wrap" id="deliveryHistory"></div>
+      </article>
+    </main>
+  </section>
+</div>
+</body>
+</html>

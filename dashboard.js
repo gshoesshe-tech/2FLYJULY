@@ -101,6 +101,7 @@
   async function load() {
     try {
       const month = TF.$('dashboardMonth')?.value || TF.monthKey();
+      const currentDate = TF.today();
 
       const financePromise = TF.isManagement()
         ? TF.state.supa.from('v_monthly_finance_v6').select('*').eq('month_start', `${month}-01`).maybeSingle()
@@ -124,16 +125,21 @@
         .from('v_inventory_summary')
         .select('category_code,category_name,total_available,total_reserved,total_on_hand');
 
-      const [financeResult, recentResult, cashResult, monthOrders, dailyResult, inventoryResult] = await Promise.all([
+      const inboundTodayPromise = TF.isManagement()
+        ? TF.state.supa.from('inbound_deliveries').select('total_fee,paid_before_system,status').eq('delivery_date',currentDate).eq('status','active')
+        : Promise.resolve({ data: [], error: null });
+
+      const [financeResult, recentResult, cashResult, monthOrders, dailyResult, inventoryResult, inboundTodayResult] = await Promise.all([
         financePromise,
         recentPromise,
         cashPromise,
         fetchMonthOrders(month),
         dailyPromise,
-        inventoryPromise
+        inventoryPromise,
+        inboundTodayPromise
       ]);
 
-      const error = financeResult.error || recentResult.error || cashResult.error || dailyResult.error || inventoryResult.error;
+      const error = financeResult.error || recentResult.error || cashResult.error || dailyResult.error || inventoryResult.error || inboundTodayResult.error;
       if (error) throw error;
 
       const fin = financeResult.data || {};
@@ -141,7 +147,8 @@
       const cash = cashResult.data || [];
       const daily = dailyResult.data || {};
       const inventoryRows = inventoryResult.data || [];
-      const today = TF.today();
+      const inboundToday = inboundTodayResult.data || [];
+      const today = currentDate;
 
       // Added dashboard figures.
       TF.$('kpiTotalOrders').textContent = monthOrders.length.toLocaleString();
@@ -169,7 +176,9 @@
           ['Shipped today', daily.shipped_today || 0],
           ['Missing courier cost', daily.missing_courier_cost || 0],
           ['Cash in', TF.money(daily.cash_in_today)],
-          ['Cash out', TF.money(daily.cash_out_today)]
+          ['Cash out', TF.money(daily.cash_out_today)],
+          ['Inbound trips', inboundToday.length],
+          ['Inbound delivery paid', TF.money(inboundToday.filter(x=>!x.paid_before_system).reduce((sum,x)=>sum+TF.num(x.total_fee),0))]
         ].map(([label,value]) => `<div class="summary-box"><span>${TF.esc(label)}</span><strong>${value}</strong></div>`).join('');
       }
 

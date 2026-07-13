@@ -1,68 +1,129 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Production | 2FLY</title>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Production Control Center | 2FLY</title>
 <link rel="stylesheet" href="./styles.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="./config.js"></script><script defer src="./common.js"></script><script defer src="./production.js"></script></head>
 <body data-page="production" data-required-role="management"><div id="toast" class="toast"></div><div class="app-shell"><aside class="sidebar"><div class="side-brand"><div class="logo small">2F</div><div><strong>2FLY System</strong><span>July 2026</span></div></div><nav><a href="./dashboard.html" data-nav="dashboard" class="nav-btn">Dashboard</a><a href="./orderpage.html" data-nav="orders" class="nav-btn">Orders</a><a href="./inventory.html" data-nav="inventory" class="nav-btn">Inventory</a><a href="./production.html" data-nav="production" class="nav-btn management-only">Production</a><a href="./payments.html" data-nav="payments" class="nav-btn">Payments</a><a href="./expenses.html" data-nav="expenses" class="nav-btn management-only">Expenses</a><a href="./finance.html" data-nav="finance" class="nav-btn management-only">Finance</a><a href="./opening.html" data-nav="opening" class="nav-btn owner-only">Opening Setup</a><a href="./settings.html" data-nav="settings" class="nav-btn owner-only">Settings</a></nav><div class="side-user"><span id="userEmail">—</span><strong id="userRole">—</strong><button id="logoutBtn" class="btn ghost">Log out</button></div></aside>
-<section class="workspace"><header class="topbar"><div><h2>Production</h2><p>Category-level production, real payments, and payables.</p></div><div class="top-actions"><button id="refreshBtn" class="btn">Refresh</button></div></header><main class="page">
+<section class="workspace"><header class="topbar"><div><h2>Production Control Center</h2><p>Cutting, WIP, partners, batches, payables, supplier orders, and complete cost breakdowns.</p></div><div class="top-actions"><button id="refreshBtn" class="btn">Refresh</button></div></header><main class="page">
 
-<div class="notice info"><strong>Cash rule:</strong> creating a batch does not deduct cash. Cash changes only when you record a fabric purchase, pay the cutter, pay the sewer, or pay a subcon. Materials paid before setup must be entered through <a href="./opening.html"><strong>Opening Setup</strong></a>.</div>
+<div class="notice info"><strong>Automatic WIP:</strong> usable pieces cut minus pieces assigned to production automatically becomes Cut WIP. Do not encode the leftover twice.</div>
 
-<div class="two-col">
-  <article class="card"><div class="card-head"><div><h3>Record fabric purchase</h3><p>Record the real payment once, before assigning the fabric to production.</p></div></div>
-    <form class="card-body form-grid" id="fabricPurchaseForm">
-      <label>Date<input id="fabricDate" type="date"></label><label>Supplier<input id="fabricSupplier"></label>
-      <label>Description<input id="fabricDescription" placeholder="Black cotton spandex rolls"></label><label>Total cost<input id="fabricCost" type="number" min="0.01" step="0.01" required></label>
-      <label>Paid from<select id="fabricAccount" required></select></label><label class="span-2">Notes<textarea id="fabricNotes"></textarea></label>
-      <button class="btn primary span-2">Save fabric purchase</button>
-    </form>
-  </article>
+<section class="kpi-grid" id="productionKpis">
+  <article class="kpi"><span>Active batches</span><strong id="kpiActiveBatches">0</strong></article>
+  <article class="kpi"><span>Cut WIP pieces</span><strong id="kpiCutWip">0</strong></article>
+  <article class="kpi"><span>Open production payables</span><strong id="kpiPayables">₱0</strong></article>
+  <article class="kpi"><span>Supplier balances</span><strong id="kpiSupplierBalance">₱0</strong></article>
+</section>
 
-  <article class="card"><div class="card-head"><div><h3>Create own-production batch</h3><p>Assign materials already purchased. No cash account is used here.</p></div></div>
-    <form class="card-body form-grid" id="ownBatchForm">
-      <label>Batch number<input id="ownBatchNumber" placeholder="BOXERS-JUL-001" required></label><label>Category<select id="ownBatchCategory"></select></label>
-      <label>Start date<input id="ownBatchDate" type="date"></label><label>Fabric purchase<select id="ownFabricPurchase"></select></label>
-      <label>Fabric value assigned<input id="ownFabricCost" type="number" min="0" step="0.01"><small>Leave 0 to use the remaining value of the selected purchase.</small></label>
-      <label>Total pieces cut<input id="ownCutQty" type="number" min="1" step="1" required></label><label>Expected good output<input id="ownExpectedGood" type="number" min="1" step="1" required><small>Use your realistic expected finished output after rejects.</small></label>
-      <label>Cutting rate<input id="ownCutRate" type="number" min="0" step="0.01"></label><label>Exact garters assigned<input id="ownGarterQty" type="number" min="0" step="1"></label>
-      <label>Sewer rate per completed piece<input id="ownSewerRate" type="number" min="0" step="0.01"></label>
-      <label class="span-2">Notes<textarea id="ownBatchNotes"></textarea></label>
-      <button class="btn primary span-2">Create production batch</button>
-    </form>
-  </article>
+<div class="section-tabs" id="productionTabs">
+  <button class="section-tab active" data-section="overview">Overview</button>
+  <button class="section-tab" data-section="cutting">Cutting & WIP</button>
+  <button class="section-tab" data-section="partners">Partners</button>
+  <button class="section-tab" data-section="suppliers">Supplier Orders</button>
+  <button class="section-tab" data-section="tools">New Records</button>
 </div>
 
-<div class="two-col">
-  <article class="card"><div class="card-head"><div><h3>Record pullout</h3><p>Finished pieces are added to the selected category. Zero amount paid creates a sewer payable.</p></div></div>
-    <form class="card-body form-grid" id="pulloutForm">
-      <label>Batch<select id="pulloutBatch"></select></label><label>Date<input id="pulloutDate" type="date"></label>
-      <label>Good completed pieces<input id="pulloutQty" type="number" min="1" step="1" required></label><label>Sewer rate<input id="pulloutSewerRate" type="number" min="0" step="0.01"></label>
-      <label>Rejected on final pullout<input id="pulloutRejects" type="number" min="0" step="1" value="0"></label><label>Amount paid now<input id="pulloutPaid" type="number" min="0" step="0.01" value="0"></label>
-      <label id="pulloutAccountWrap">Paid from<select id="pulloutAccount"></select><small>Required only when amount paid now is above ₱0.</small></label>
-      <label class="check"><input id="pulloutFinal" type="checkbox"> This is the final pullout</label>
-      <label class="span-2">Notes<textarea id="pulloutNotes"></textarea></label>
-      <div class="span-2 notice info" id="pulloutSummary">Enter completed pieces to calculate sewer pay.</div>
-      <button class="btn primary span-2">Add pullout and inventory</button>
-    </form>
-  </article>
+<section data-panel="overview">
+  <article class="card"><div class="card-head"><div><h3>Production batches</h3><p>Every major cost, finished quantity, remaining pieces, and balance still owed.</p></div></div><div class="table-wrap" id="productionTable"></div></article>
+  <article class="card"><div class="card-head"><div><h3>Open payables</h3><p>Shows the last account used, reference, and complete payment history.</p></div></div><div class="table-wrap" id="payablesTable"></div></article>
+</section>
 
-  <article class="card"><div class="card-head"><div><h3>Receive subcon finished goods</h3><p>Stock is added by category. Any unpaid balance becomes a payable.</p></div></div>
-    <form class="card-body form-grid" id="subconForm">
-      <label>Batch number<input id="subconBatchNumber" required></label><label>Category<select id="subconCategory"></select></label>
-      <label>Received date<input id="subconDate" type="date"></label><label>Partner<input id="subconPartner" required></label>
-      <label>Quantity received<input id="subconQty" type="number" min="1" step="1" required></label><label>Fixed price per piece<input id="subconPrice" type="number" min="0.01" step="0.01" required></label>
-      <label>Direct handling<input id="subconHandling" type="number" min="0" step="0.01" value="0"></label><label>Amount paid now<input id="subconPaid" type="number" min="0" step="0.01" value="0"></label>
-      <label id="subconAccountWrap">Paid from<select id="subconAccount"></select><small>Required only when amount paid now is above ₱0.</small></label>
-      <label class="span-2">Notes<textarea id="subconNotes"></textarea></label>
-      <div class="span-2 notice info" id="subconSummary">Enter quantity and price to see the total cost.</div>
-      <button class="btn primary span-2">Receive subcon inventory</button>
-    </form>
-  </article>
-</div>
+<section data-panel="cutting" class="hidden">
+  <article class="card"><div class="card-head"><div><h3>Cutting jobs and automatic Cut WIP</h3><p>Leftover usable cut pieces and their fabric + cutting value are calculated automatically.</p></div></div><div class="table-wrap" id="cuttingTable"></div></article>
+  <div class="two-col">
+    <article class="card"><div class="card-head"><div><h3>Cutting payments</h3><p>Every cutting payment, date, amount, account, and reference.</p></div></div><div class="table-wrap" id="cuttingPaymentsTable"></div></article>
+    <article class="card"><div class="card-head"><div><h3>Cutting payables</h3><p>Unpaid or partially paid cutting balances.</p></div></div><div class="table-wrap" id="cuttingPayablesTable"></div></article>
+  </div>
+  <div class="two-col">
+    <article class="card"><div class="card-head"><div><h3>Record cutting job</h3><p>Use this after the fabric is cut. Unpaid cutting automatically becomes a payable.</p></div></div>
+      <form id="cuttingForm" class="card-body form-grid">
+        <label>Job code<input id="cutJobCode" required placeholder="CUT-2500-JUL15"></label><label>Cut date<input id="cutDate" type="date" required></label>
+        <label>Category<select id="cutCategory"></select></label><label>Fabric purchase<select id="cutFabricPurchase"></select></label>
+        <label>Cutter<select id="cutCutter"></select></label><label>Usable pieces cut<input id="cutUsableQty" type="number" min="1" step="1" required></label>
+        <label>Rejected / unusable pieces<input id="cutRejectedQty" type="number" min="0" step="1" value="0"></label><label>Fabric landed value for this job<input id="cutFabricCost" type="number" min="0" step="0.01" required></label>
+        <label>Cutting rate per usable piece<input id="cutRate" type="number" min="0" step="0.01" value="1.50"></label><label>Amount paid now<input id="cutPaid" type="number" min="0" step="0.01" value="0"></label>
+        <label id="cutAccountWrap">Paid from<select id="cutAccount"></select></label><label>Reference number<input id="cutReference"></label>
+        <label class="span-2">Notes<textarea id="cutNotes"></textarea></label>
+        <div class="notice info span-2" id="cutSummary">Enter the usable quantity to calculate the cutting cost.</div>
+        <button class="btn primary span-2">Save cutting job</button>
+      </form>
+    </article>
+    <article class="card"><div class="card-head"><div><h3>Assign Cut WIP to a batch</h3><p>Transfers the existing fabric and cutting value. These costs are not charged twice.</p></div></div>
+      <form id="wipBatchForm" class="card-body form-grid">
+        <label>Cutting job<select id="wipJob"></select></label><label>New batch number<input id="wipBatchNumber" required></label>
+        <label>Start date<input id="wipBatchDate" type="date" required></label><label>Production partner<select id="wipPartner"></select></label>
+        <label>Pieces to assign<input id="wipQty" type="number" min="1" step="1" required></label><label>Expected good output<input id="wipExpected" type="number" min="1" step="1" required></label>
+        <label>Exact garters assigned<input id="wipGarters" type="number" min="0" step="1" required></label><label>Sewing rate<input id="wipSewerRate" type="number" min="0" step="0.01" value="9"></label>
+        <label class="span-2">Notes<textarea id="wipNotes"></textarea></label>
+        <div class="notice info span-2" id="wipSummary">Choose a cutting job to see available WIP.</div>
+        <button class="btn primary span-2">Create batch from Cut WIP</button>
+      </form>
+    </article>
+  </div>
+</section>
 
-<article class="card"><div class="card-head"><div><h3>Open payables</h3><p>Cutting, sewer, and subcon balances still owed.</p></div></div><div class="table-wrap" id="payablesTable"></div></article>
-<article class="card"><div class="card-head"><h3>Production batches</h3></div><div class="table-wrap" id="productionTable"></div></article>
-<article class="card"><div class="card-head"><h3>Fabric purchases</h3></div><div class="table-wrap" id="fabricTable"></div></article>
+<section data-panel="partners" class="hidden">
+  <article class="card"><div class="card-head"><div><h3>Production partners</h3><p>Rates, active batches, advances, and unpaid balances in one view.</p></div></div><div class="table-wrap" id="partnersTable"></div></article>
+  <div class="two-col">
+    <article class="card"><div class="card-head"><div><h3>Assign partner to existing batch</h3><p>Use when one batch is split between several tahian partners.</p></div></div>
+      <form id="partnerAssignmentForm" class="card-body form-grid">
+        <label>Batch<select id="assignBatch"></select></label><label>Partner<select id="assignPartner"></select></label>
+        <label>Assigned quantity<input id="assignQty" type="number" min="1" step="1" required></label><label>Assigned date<input id="assignDate" type="date" required></label>
+        <label class="span-2">Notes<textarea id="assignNotes"></textarea></label><button class="btn primary span-2">Assign partner</button>
+      </form>
+    </article>
+    <article class="card"><div class="card-head"><div><h3>Record partial pullout</h3><p>Advance is applied first, then cash paid, then any balance becomes a payable.</p></div></div>
+      <form id="pulloutForm" class="card-body form-grid">
+        <label>Batch<select id="pulloutBatch"></select></label><label>Partner<select id="pulloutPartner"></select></label>
+        <label>Date<input id="pulloutDate" type="date" required></label><label>Good completed pieces<input id="pulloutQty" type="number" min="1" step="1" required></label>
+        <label>Sewing rate<input id="pulloutSewerRate" type="number" min="0" step="0.01" value="9"></label><label>Amount paid now<input id="pulloutPaid" type="number" min="0" step="0.01" value="0"></label>
+        <label id="pulloutAccountWrap">Paid from<select id="pulloutAccount"></select></label><label>Rejected on final pullout<input id="pulloutRejects" type="number" min="0" step="1" value="0"></label>
+        <label class="check span-2"><input id="pulloutFinal" type="checkbox"> This is the final pullout for the full batch</label>
+        <label class="span-2">Notes<textarea id="pulloutNotes"></textarea></label>
+        <div class="notice info span-2" id="pulloutSummary">Select a batch and partner to calculate the settlement.</div>
+        <button class="btn primary span-2">Add pullout and inventory</button>
+      </form>
+    </article>
+  </div>
+</section>
+
+<section data-panel="suppliers" class="hidden">
+  <article class="card"><div class="card-head"><div><h3>Supplier orders and down payments</h3><p>Stock only enters Inventory when products are physically received.</p></div></div><div class="table-wrap" id="supplierOrdersTable"></div></article>
+</section>
+
+<section data-panel="tools" class="hidden">
+  <div class="two-col">
+    <article class="card"><div class="card-head"><div><h3>Record fabric purchase</h3><p>Records the actual cash payment. Add delivery through Inbound Deliveries.</p></div></div>
+      <form class="card-body form-grid" id="fabricPurchaseForm">
+        <label>Date<input id="fabricDate" type="date"></label><label>Supplier<input id="fabricSupplier"></label>
+        <label>Description<input id="fabricDescription" placeholder="Cotton spandex rolls"></label><label>Total purchase cost<input id="fabricCost" type="number" min="0.01" step="0.01" required></label>
+        <label>Paid from<select id="fabricAccount" required></select></label><label class="span-2">Notes<textarea id="fabricNotes"></textarea></label>
+        <button class="btn primary span-2">Save fabric purchase</button>
+      </form>
+    </article>
+    <article class="card"><div class="card-head"><div><h3>Receive full-subcon goods</h3><p>For finished goods where the partner’s price already includes materials and labor.</p></div></div>
+      <form class="card-body form-grid" id="subconForm">
+        <label>Batch number<input id="subconBatchNumber" required></label><label>Category<select id="subconCategory"></select></label>
+        <label>Received date<input id="subconDate" type="date"></label><label>Partner<select id="subconPartner"></select></label>
+        <label>Quantity received<input id="subconQty" type="number" min="1" step="1" required></label><label>Fixed price per piece<input id="subconPrice" type="number" min="0.01" step="0.01" required></label>
+        <label>Direct handling<input id="subconHandling" type="number" min="0" step="0.01" value="0"></label><label>Amount paid now<input id="subconPaid" type="number" min="0" step="0.01" value="0"></label>
+        <label id="subconAccountWrap">Paid from<select id="subconAccount"></select></label><label class="span-2">Notes<textarea id="subconNotes"></textarea></label>
+        <div class="notice info span-2" id="subconSummary">Enter quantity and price to see the total cost.</div>
+        <button class="btn primary span-2">Receive subcon inventory</button>
+      </form>
+    </article>
+  </div>
+  <article class="card"><div class="card-head"><div><h3>Fabric purchase history</h3></div></div><div class="table-wrap" id="fabricTable"></div></article>
+</section>
 
 </main></section></div>
 
-<dialog id="payPayableDialog"><form class="dialog-card" id="payPayableForm"><div class="dialog-title-row"><div><h3 id="payPayableTitle">Pay balance</h3><p id="payPayableMeta" class="muted"></p></div><button type="button" class="btn" id="closePayableDialog">Close</button></div><input id="payPayableId" type="hidden"><label>Date<input id="payPayableDate" type="date"></label><label>Amount<input id="payPayableAmount" type="number" min="0.01" step="0.01" required></label><label>Paid from<select id="payPayableAccount" required></select></label><label>Notes<textarea id="payPayableNotes"></textarea></label><div class="dialog-actions"><button type="button" class="btn" id="cancelPayableDialog">Cancel</button><button class="btn primary">Record payment</button></div></form></dialog>
+<dialog id="batchDialog"><section class="dialog-card wide"><div class="dialog-title-row"><div><h3 id="batchDialogTitle">Batch details</h3><p id="batchDialogMeta" class="muted"></p></div><button type="button" class="btn" data-close="batchDialog">Close</button></div><div id="batchDialogBody"></div></section></dialog>
+
+<dialog id="payPayableDialog"><form class="dialog-card" id="payPayableForm"><div class="dialog-title-row"><div><h3 id="payPayableTitle">Pay balance</h3><p id="payPayableMeta" class="muted"></p></div><button type="button" class="btn" data-close="payPayableDialog">Close</button></div><input id="payPayableId" type="hidden"><label>Date<input id="payPayableDate" type="date"></label><label>Amount<input id="payPayableAmount" type="number" min="0.01" step="0.01" required></label><label>Paid from<select id="payPayableAccount" required></select></label><label>Reference number<input id="payPayableReference"></label><label>Notes<textarea id="payPayableNotes"></textarea></label><div><h4>Payment history</h4><div id="payableHistory"></div></div><div class="dialog-actions"><button type="button" class="btn" data-close="payPayableDialog">Cancel</button><button class="btn primary">Record payment</button></div></form></dialog>
+
+<dialog id="advanceDialog"><form class="dialog-card" id="advanceForm"><div class="dialog-title-row"><div><h3>Confirm production advance</h3><p id="advanceMeta" class="muted"></p></div><button type="button" class="btn" data-close="advanceDialog">Close</button></div><input id="advanceId" type="hidden"><label>Payment date<input id="advanceDate" type="date" required></label><label>Paid from<select id="advanceAccount"></select></label><label class="check"><input id="advanceBeforeSystem" type="checkbox"> Paid before July 1 / already inside opening records</label><label>Notes<textarea id="advanceNotes"></textarea></label><div class="dialog-actions"><button type="button" class="btn" data-close="advanceDialog">Cancel</button><button class="btn primary">Confirm advance</button></div></form></dialog>
+
+<dialog id="supplierDialog"><section class="dialog-card wide"><div class="dialog-title-row"><div><h3 id="supplierDialogTitle">Supplier order</h3><p id="supplierDialogMeta" class="muted"></p></div><button type="button" class="btn" data-close="supplierDialog">Close</button></div><div id="supplierOrderDetail"></div><div class="two-col">
+<form id="supplierPaymentForm" class="stack"><h4>Pay supplier balance</h4><input id="supplierPayOrderId" type="hidden"><label>Date<input id="supplierPayDate" type="date"></label><label>Amount<input id="supplierPayAmount" type="number" min="0.01" step="0.01"></label><label>Paid from<select id="supplierPayAccount"></select></label><label>Reference<input id="supplierPayReference"></label><label>Notes<textarea id="supplierPayNotes"></textarea></label><button class="btn primary">Record supplier payment</button></form>
+<form id="supplierReceiveForm" class="stack"><h4>Receive products</h4><input id="supplierReceiveOrderId" type="hidden"><label>Receipt date<input id="supplierReceiveDate" type="date"></label><div id="supplierReceiveItems"></div><label>Delivery cost<input id="supplierDeliveryCost" type="number" min="0" step="0.01" value="0"></label><label>Delivery paid from<select id="supplierDeliveryAccount"></select></label><label>Payment made on receipt<input id="supplierFinalPayment" type="number" min="0" step="0.01" value="0"></label><label>Product payment account<select id="supplierFinalPaymentAccount"></select></label><label>Reference<input id="supplierReceiveReference"></label><label>Notes<textarea id="supplierReceiveNotes"></textarea></label><button class="btn primary">Receive stock</button></form>
+</div></section></dialog>
 </body></html>

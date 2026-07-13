@@ -101,8 +101,34 @@
     if(production) production.insertAdjacentElement('afterend',link);
     else nav.appendChild(link);
   }
+  function ensureTeamPayrollNav(){
+    const nav=document.querySelector('.sidebar nav');
+    if(!nav||nav.querySelector('[data-nav="team"]')) return;
+    const link=document.createElement('a');
+    link.href='./team.html';
+    link.dataset.nav='team';
+    link.className='nav-btn management-only';
+    link.textContent='Team & Payroll';
+    const expenses=nav.querySelector('[data-nav="expenses"]');
+    if(expenses) expenses.insertAdjacentElement('afterend',link);
+    else nav.appendChild(link);
+  }
+  function ensureControlNav(){
+    const nav=document.querySelector('.sidebar nav');
+    if(!nav||nav.querySelector('[data-nav="control"]')) return;
+    const link=document.createElement('a');
+    link.href='./control.html';
+    link.dataset.nav='control';
+    link.className='nav-btn management-only';
+    link.textContent='Cash Check & Search';
+    const finance=nav.querySelector('[data-nav="finance"]');
+    if(finance) finance.insertAdjacentElement('afterend',link);
+    else nav.appendChild(link);
+  }
   function initShell(){
     ensureInboundDeliveriesNav();
+    ensureTeamPayrollNav();
+    ensureControlNav();
     if($('userEmail')) $('userEmail').textContent=state.profile.email||state.session.user.email||'—';
     if($('userRole')) $('userRole').textContent=String(state.role).toUpperCase();
     const active=document.body.dataset.page;

@@ -105,3 +105,9 @@ hr{border-color:var(--line)}
   html{color-scheme:light}
   body,.card,.dialog-card,.packing-row{background:#fff!important;color:#111!important}
 }
+
+/* V13 operations stabilization */
+.inline-action{display:flex;align-items:center;gap:6px;min-width:250px}.inline-action select{min-width:150px;padding:7px}.ops-detail{grid-template-columns:repeat(5,minmax(0,1fr));margin-bottom:14px}.ops-formula{margin:14px 0}.ops-card-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:14px}.ops-staff-card{margin:0}.ops-staff-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}.ops-staff-head h3{margin:0}.ops-staff-head p{margin:3px 0 0}.ops-plan-list{display:grid;gap:8px;margin-top:14px}.ops-plan-list>div{border:1px solid var(--line);background:var(--panel-soft);border-radius:6px;padding:10px}.ops-plan-list span,.ops-plan-list small{display:block;color:var(--muted)}.ops-plan-list strong{display:block;margin:3px 0}.field-disabled{opacity:.55}.field-disabled select{pointer-events:none}.muted{color:var(--muted)}.table-wrap table small{line-height:1.35}.table-wrap .inline-action .btn{white-space:nowrap}.dialog-card h4{margin:10px 0 6px}.dialog-card .table-wrap{max-height:300px;overflow:auto}
+@media(max-width:1150px){.ops-detail{grid-template-columns:repeat(3,1fr)}.ops-card-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:650px){.ops-detail,.ops-card-grid{grid-template-columns:1fr}.inline-action{min-width:210px;flex-direction:column;align-items:stretch}}
+.text-ok{color:var(--ok)}.text-danger{color:var(--danger)}

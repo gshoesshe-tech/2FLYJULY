@@ -38,7 +38,7 @@
         <label>Job code<input id="cutJobCode" required placeholder="CUT-2500-JUL15"></label><label>Cut date<input id="cutDate" type="date" required></label>
         <label>Category<select id="cutCategory"></select></label><label>Fabric purchase<select id="cutFabricPurchase"></select></label>
         <label>Cutter<select id="cutCutter"></select></label><label>Usable pieces cut<input id="cutUsableQty" type="number" min="1" step="1" required></label>
-        <label>Rejected / unusable pieces<input id="cutRejectedQty" type="number" min="0" step="1" value="0"></label><label>Fabric landed value for this job<input id="cutFabricCost" type="number" min="0" step="0.01" required></label>
+        <label>Rejected / unusable pieces<input id="cutRejectedQty" type="number" min="0" step="1" value="0"></label><label>Fabric value to lock for this cutting job<input id="cutFabricCost" type="number" min="0" step="0.01" required></label>
         <label>Cutting rate per usable piece<input id="cutRate" type="number" min="0" step="0.01" value="1.50"></label><label>Amount paid now<input id="cutPaid" type="number" min="0" step="0.01" value="0"></label>
         <label id="cutAccountWrap">Paid from<select id="cutAccount"></select></label><label>Reference number<input id="cutReference"></label>
         <label class="span-2">Notes<textarea id="cutNotes"></textarea></label>
@@ -62,6 +62,9 @@
 
 <section data-panel="partners" class="hidden">
   <article class="card"><div class="card-head"><div><h3>Production partners</h3><p>Rates, active batches, advances, and unpaid balances in one view.</p></div></div><div class="table-wrap" id="partnersTable"></div></article>
+  <article class="card"><div class="card-head"><div><h3>Partner assignment status</h3><p>Exact assigned, completed, remaining pieces, labor settlement, and open balance per batch.</p></div></div><div class="table-wrap" id="partnerStatusTable"></div></article>
+  <article class="card"><div class="card-head"><div><h3>Pullout history</h3><p>Every production output with partner, advance, cash, payable, pickup cost, and inventory value.</p></div></div><div class="table-wrap" id="pulloutHistoryTable"></div></article>
+  <article class="card"><div class="card-head"><div><h3>Partner transfer history</h3><p>Tracks cut pieces moved from one production partner to another without changing the batch total.</p></div></div><div class="table-wrap" id="transferHistoryTable"></div></article>
   <div class="two-col">
     <article class="card"><div class="card-head"><div><h3>Assign partner to existing batch</h3><p>Use when one batch is split between several tahian partners.</p></div></div>
       <form id="partnerAssignmentForm" class="card-body form-grid">
@@ -83,6 +86,17 @@
       </form>
     </article>
   </div>
+  <article class="card"><div class="card-head"><div><h3>Transfer assigned WIP between partners</h3><p>Moves only unfinished assigned pieces. An optional Lalamove fee can be paid by 2FLY or reimbursed later.</p></div></div>
+    <form id="partnerTransferForm" class="card-body form-grid cols-3">
+      <label>Batch<select id="transferBatch"></select></label><label>From partner<select id="transferFrom"></select></label><label>To partner<select id="transferTo"></select></label>
+      <label>Transfer date<input id="transferDate" type="date" required></label><label>Pieces transferred<input id="transferQty" type="number" min="1" step="1" required></label><label>Lalamove fee<input id="transferFee" type="number" min="0" step="0.01" value="0"></label>
+      <label>Payment treatment<select id="transferPaymentMode"><option value="company_cash">Paid by 2FLY now</option><option value="reimbursement_payable">Paid by another person — reimburse later</option><option value="paid_before_system">Paid before system start</option></select></label>
+      <label id="transferAccountWrap">Paid from<select id="transferAccount"></select></label><label id="transferReimbursementWrap" class="hidden">Reimburse to<input id="transferReimbursementParty" placeholder="Example: Dominique"></label>
+      <label>Reference number<input id="transferReference"></label><label class="span-2">Notes<textarea id="transferNotes"></textarea></label>
+      <div class="notice info span-3" id="transferSummary">Choose a batch and source partner to see remaining assigned pieces.</div>
+      <button class="btn primary span-3">Transfer pieces</button>
+    </form>
+  </article>
 </section>
 
 <section data-panel="suppliers" class="hidden">
@@ -99,18 +113,20 @@
         <button class="btn primary span-2">Save fabric purchase</button>
       </form>
     </article>
-    <article class="card"><div class="card-head"><div><h3>Receive full-subcon goods</h3><p>For finished goods where the partner’s price already includes materials and labor.</p></div></div>
+    <article class="card"><div class="card-head"><div><h3>Receive full-subcon goods</h3><p>For finished goods where the partner’s price includes materials and labor. Available partner credit is applied automatically.</p></div></div>
       <form class="card-body form-grid" id="subconForm">
         <label>Batch number<input id="subconBatchNumber" required></label><label>Category<select id="subconCategory"></select></label>
         <label>Received date<input id="subconDate" type="date"></label><label>Partner<select id="subconPartner"></select></label>
         <label>Quantity received<input id="subconQty" type="number" min="1" step="1" required></label><label>Fixed price per piece<input id="subconPrice" type="number" min="0.01" step="0.01" required></label>
         <label>Direct handling<input id="subconHandling" type="number" min="0" step="0.01" value="0"></label><label>Amount paid now<input id="subconPaid" type="number" min="0" step="0.01" value="0"></label>
-        <label id="subconAccountWrap">Paid from<select id="subconAccount"></select></label><label class="span-2">Notes<textarea id="subconNotes"></textarea></label>
+        <label id="subconAccountWrap">Paid from<select id="subconAccount"></select></label><label>Reference number<input id="subconReference"></label><label class="span-2">Notes<textarea id="subconNotes"></textarea></label>
         <div class="notice info span-2" id="subconSummary">Enter quantity and price to see the total cost.</div>
         <button class="btn primary span-2">Receive subcon inventory</button>
       </form>
     </article>
   </div>
+  <article class="card"><div class="card-head"><div><h3>Full-subcon receipt history</h3><p>Shows gross product cost, prepaid credit used, cash paid, and remaining balance.</p></div></div><div class="table-wrap" id="subconHistoryTable"></div></article>
+  <article class="card"><div class="card-head"><div><h3>Combined payment history</h3><p>One real GCash or bank transfer can be split across production balances and delivery reimbursements without duplicating cash.</p></div></div><div class="table-wrap" id="disbursementHistoryTable"></div></article>
   <article class="card"><div class="card-head"><div><h3>Fabric purchase history</h3></div></div><div class="table-wrap" id="fabricTable"></div></article>
 </section>
 
@@ -124,6 +140,6 @@
 
 <dialog id="supplierDialog"><section class="dialog-card wide"><div class="dialog-title-row"><div><h3 id="supplierDialogTitle">Supplier order</h3><p id="supplierDialogMeta" class="muted"></p></div><button type="button" class="btn" data-close="supplierDialog">Close</button></div><div id="supplierOrderDetail"></div><div class="two-col">
 <form id="supplierPaymentForm" class="stack"><h4>Pay supplier balance</h4><input id="supplierPayOrderId" type="hidden"><label>Date<input id="supplierPayDate" type="date"></label><label>Amount<input id="supplierPayAmount" type="number" min="0.01" step="0.01"></label><label>Paid from<select id="supplierPayAccount"></select></label><label>Reference<input id="supplierPayReference"></label><label>Notes<textarea id="supplierPayNotes"></textarea></label><button class="btn primary">Record supplier payment</button></form>
-<form id="supplierReceiveForm" class="stack"><h4>Receive products</h4><input id="supplierReceiveOrderId" type="hidden"><label>Receipt date<input id="supplierReceiveDate" type="date"></label><div id="supplierReceiveItems"></div><label>Delivery cost<input id="supplierDeliveryCost" type="number" min="0" step="0.01" value="0"></label><label>Delivery paid from<select id="supplierDeliveryAccount"></select></label><label>Payment made on receipt<input id="supplierFinalPayment" type="number" min="0" step="0.01" value="0"></label><label>Product payment account<select id="supplierFinalPaymentAccount"></select></label><label>Reference<input id="supplierReceiveReference"></label><label>Notes<textarea id="supplierReceiveNotes"></textarea></label><button class="btn primary">Receive stock</button></form>
+<form id="supplierReceiveForm" class="stack"><h4>Receive products</h4><input id="supplierReceiveOrderId" type="hidden"><label>Receipt date<input id="supplierReceiveDate" type="date"></label><div id="supplierReceiveItems"></div><div class="notice info"><strong>Delivery rule:</strong> receive products here, then record any Lalamove fee once under Inbound Deliveries and allocate it to the correct category or batch.</div><label>Payment made on receipt<input id="supplierFinalPayment" type="number" min="0" step="0.01" value="0"></label><label>Product payment account<select id="supplierFinalPaymentAccount"></select></label><label>Reference<input id="supplierReceiveReference"></label><label>Notes<textarea id="supplierReceiveNotes"></textarea></label><button class="btn primary">Receive stock</button></form>
 </div></section></dialog>
 </body></html>

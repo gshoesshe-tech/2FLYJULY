@@ -47,13 +47,13 @@
     </header>
 
     <main class="page">
-      <div class="notice info"><strong>Simple rule:</strong> one ride, one cash payment, one or more cost allocations. Do not record the same ride again in Expenses.</div>
+      <div class="notice info"><strong>Simple rule:</strong> one ride, one payment source, one or more cost allocations. When another person pays first, the system creates a reimbursement payable instead of deducting company cash immediately.</div>
 
       <div class="kpi-grid">
         <article class="kpi"><span>Trips this month</span><strong id="deliveryTripsMonth">0</strong></article>
         <article class="kpi"><span>Inbound cost this month</span><strong id="deliveryCostMonth">₱0</strong></article>
         <article class="kpi"><span>Cash paid this month</span><strong id="deliveryCashMonth">₱0</strong></article>
-        <article class="kpi"><span>Paid before system</span><strong id="deliveryOpeningMonth">₱0</strong></article>
+        <article class="kpi"><span>Reimbursement deliveries</span><strong id="deliveryReimbursementMonth">₱0</strong></article>
       </div>
 
       <article class="card">
@@ -64,8 +64,9 @@
             <label>Total Lalamove fee<input id="deliveryFee" type="number" min="0.01" step="0.01" required></label>
             <label>From<input id="deliveryOrigin" placeholder="Example: Fabric supplier" required></label>
             <label>To<input id="deliveryDestination" placeholder="Example: Taytay production area" required></label>
-            <label>Payment treatment<select id="deliveryPaymentMode"><option value="paid_now">Paid now / after system start</option><option value="paid_before">Paid before system start</option></select></label>
-            <label id="deliveryAccountWrap">Paid from<select id="deliveryAccount" required></select></label>
+            <label>Payment treatment<select id="deliveryPaymentMode"><option value="company_cash">Paid by 2FLY now</option><option value="reimbursement_payable">Paid by another person — reimburse later</option><option value="paid_before_system">Paid before system start</option></select></label>
+            <label id="deliveryAccountWrap">Paid from<select id="deliveryAccount"></select></label>
+            <label id="deliveryReimbursementWrap" class="hidden">Reimburse to<input id="deliveryReimbursementParty" placeholder="Example: Dominique"></label>
             <label>Reference number<input id="deliveryReference" placeholder="Optional Lalamove booking/ref"></label>
             <label>Notes<input id="deliveryNotes" placeholder="Optional trip details"></label>
           </div>

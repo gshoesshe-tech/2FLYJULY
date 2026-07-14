@@ -53,8 +53,11 @@
     return `<span class="pill ${cls}">${esc(s.replaceAll('_',' '))}</span>`;
   }
   function monthEndExclusive(m){
-    const y=Number(m.slice(0,4)), mo=Number(m.slice(5,7));
-    return new Date(y,mo,1).toISOString().slice(0,10);
+    const y=Number(String(m).slice(0,4)), mo=Number(String(m).slice(5,7));
+    if(!Number.isInteger(y)||!Number.isInteger(mo)||mo<1||mo>12) throw new Error('Invalid month');
+    const nextYear=mo===12?y+1:y;
+    const nextMonth=mo===12?1:mo+1;
+    return `${nextYear}-${String(nextMonth).padStart(2,'0')}-01`;
   }
   function accountOptions(includeBlank=true){
     return (includeBlank?'<option value="">No cash movement / select later</option>':'')+state.accounts.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('');
